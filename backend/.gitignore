@@ -1,0 +1,28 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+
+# Frontend build
+frontend/build
+
+# Backend build or logs
+backend/node_modules
+backend/dist
+backend/logs
+
+# ML / Python
+*.pyc
+__pycache__/
+ml/**/*.pyc
+ml/**/__pycache__/
+
+# Environment files
+*.env
+*.env.local
+*.env.*.local
+
+# VS Code
+.vscode/
