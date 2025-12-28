@@ -5,6 +5,7 @@ import { useParams } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { api } from "../../api/axiosClient.js"
 import BacklogItemForm from "./BackLogItemForm.jsx"
+import SprintLoadAnalyzer from "../impact/SprintLoadAnalyzer.jsx"
 
 export default function BacklogPage() {
   const { spaceId } = useParams()
@@ -12,6 +13,8 @@ export default function BacklogPage() {
   const [selected, setSelected] = useState([])
   const [showForm, setShowForm] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
+  const [selectedSprint, setSelectedSprint] = useState("")
+  const [showAnalyzer, setShowAnalyzer] = useState(false)
 
   const { data: backlog, isLoading: backlogLoading } = useQuery({
     queryKey: ["backlog", spaceId],
@@ -37,6 +40,7 @@ export default function BacklogPage() {
       qc.invalidateQueries({ queryKey: ["backlog", spaceId] })
       qc.invalidateQueries({ queryKey: ["sprints", spaceId] })
       setSelected([])
+      setSelectedSprint("")
     },
   })
 
@@ -98,6 +102,26 @@ export default function BacklogPage() {
     )
   }
 
+  const handleAnalyzeAndAdd = () => {
+    if (!selectedSprint) return
+    setShowAnalyzer(true)
+  }
+
+  const handleAnalysisComplete = (analyses) => {
+    const highRiskItems = analyses.filter((a) => a.analysis?.overall_status?.includes("High Risk"))
+    if (highRiskItems.length > 0) {
+      const proceed = window.confirm(
+        `Warning: ${highRiskItems.length} item(s) have high risk. Do you want to proceed adding them to the sprint?`,
+      )
+      if (!proceed) {
+        setShowAnalyzer(false)
+        return
+      }
+    }
+    addToSprintMut.mutate(selectedSprint)
+    setShowAnalyzer(false)
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -147,26 +171,35 @@ export default function BacklogPage() {
                 Clear selection
               </button>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-3 items-center">
               <select
                 className="select text-sm"
-                onChange={(e) => {
-                  if (e.target.value) {
-                    addToSprintMut.mutate(e.target.value)
-                    e.target.value = ""
-                  }
-                }}
+                value={selectedSprint}
+                onChange={(e) => setSelectedSprint(e.target.value)}
               >
-                <option value="">Add to sprint...</option>
-                {sprints?.map((s) => (
-                  <option key={s._id} value={s._id}>
-                    {s.name} ({s.status})
-                  </option>
-                ))}
+                <option value="">Select sprint...</option>
+                {sprints
+                  ?.filter((s) => s.status === "planned" || s.status === "active")
+                  .map((s) => (
+                    <option key={s._id} value={s._id}>
+                      {s.name} ({s.status})
+                    </option>
+                  ))}
               </select>
+              <button onClick={handleAnalyzeAndAdd} disabled={!selectedSprint} className="btn btn-primary text-sm">
+                Analyze & Add to Sprint
+              </button>
             </div>
           </div>
         </div>
+      )}
+
+      {showAnalyzer && selectedSprint && (
+        <SprintLoadAnalyzer
+          sprintId={selectedSprint}
+          workItemIds={selected}
+          onAnalysisComplete={handleAnalysisComplete}
+        />
       )}
 
       {/* Backlog Items List */}

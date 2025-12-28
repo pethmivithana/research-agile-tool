@@ -25,9 +25,9 @@ export default function App() {
           <Route path="/create-space" element={<CreateSpacePage />} />
           <Route path="/spaces/:spaceId" element={<SpaceDashboard />}>
             <Route path="backlog" element={<BacklogPage />} />
+            <Route path="changes" element={<RequirementChangePage />} />
           </Route>
           <Route path="/sprints/:sprintId/board" element={<BoardPage />} />
-          <Route path="/changes" element={<RequirementChangePage />} />
           <Route path="/changes/:changeId/results" element={<ChangeResultsPage />} />
           <Route path="/analytics/:spaceId" element={<ChangeAnalyticsDashboard />} />
         </Route>

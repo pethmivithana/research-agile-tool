@@ -21,7 +21,7 @@ export default function SpaceDashboard() {
 
   const tabs = [
     { to: `/spaces/${spaceId}/backlog`, label: "Backlog" },
-    { to: `/changes`, label: "Requirement Tracker" },
+    { to: `/spaces/${spaceId}/changes`, label: "Requirement Tracker" },
     { to: `/analytics/${spaceId}`, label: "Analytics" },
     { to: "#", label: "Models & AI", disabled: true },
   ]

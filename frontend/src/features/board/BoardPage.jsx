@@ -77,93 +77,97 @@ export default function BoardPage() {
         <p className="text-slate-600 mt-1">Drag and drop tasks to update their status</p>
       </div>
 
-      <DragDropContext onDragEnd={onDragEnd}>
-        <div className="grid grid-cols-4 gap-4">
-          {columns.map((col) => (
-            <div key={col} className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-slate-700 text-sm uppercase tracking-wide">{col}</h3>
-                <span className="badge badge-secondary text-xs">{itemsByCol[col]?.length || 0}</span>
-              </div>
+      <div>
+        <DragDropContext onDragEnd={onDragEnd}>
+          <div className="grid grid-cols-4 gap-4">
+            {columns.map((col) => (
+              <div key={col} className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-slate-700 text-sm uppercase tracking-wide">{col}</h3>
+                  <span className="badge badge-secondary text-xs">{itemsByCol[col]?.length || 0}</span>
+                </div>
 
-              <Droppable droppableId={col}>
-                {(provided, snapshot) => (
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    className={`min-h-[500px] space-y-2 ${snapshot.isDraggingOver ? "bg-blue-50 rounded-lg p-2" : ""}`}
-                  >
-                    {itemsByCol[col]?.length === 0 ? (
-                      <div className="text-center py-8 text-slate-400">
-                        <svg
-                          className="w-8 h-8 mx-auto mb-2 opacity-50"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
-                          />
-                        </svg>
-                        <p className="text-xs">No tasks</p>
-                      </div>
-                    ) : (
-                      itemsByCol[col]?.map((item, i) => (
-                        <Draggable key={item._id} draggableId={item._id} index={i}>
-                          {(prov, snap) => (
-                            <div
-                              ref={prov.innerRef}
-                              {...prov.draggableProps}
-                              {...prov.dragHandleProps}
-                              className={`bg-white rounded-lg p-3 shadow-sm border-l-4 ${getPriorityColor(item.priority)} ${
-                                snap.isDragging ? "shadow-lg rotate-2" : "hover:shadow-md"
-                              } transition-all cursor-grab active:cursor-grabbing`}
-                            >
-                              <div className="flex items-start justify-between gap-2 mb-2">
-                                <div className="flex items-center gap-2">
-                                  {getTypeIcon(item.type)}
-                                  <span className="text-xs font-medium text-slate-600">{item.type}</span>
+                <Droppable droppableId={col}>
+                  {(provided, snapshot) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      className={`min-h-[500px] space-y-2 ${snapshot.isDraggingOver ? "bg-blue-50 rounded-lg p-2" : ""}`}
+                    >
+                      {itemsByCol[col]?.length === 0 ? (
+                        <div className="text-center py-8 text-slate-400">
+                          <svg
+                            className="w-8 h-8 mx-auto mb-2 opacity-50"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+                            />
+                          </svg>
+                          <p className="text-xs">No tasks</p>
+                        </div>
+                      ) : (
+                        itemsByCol[col]?.map((item, i) => (
+                          <Draggable key={item._id} draggableId={item._id} index={i}>
+                            {(prov, snap) => (
+                              <div
+                                ref={prov.innerRef}
+                                {...prov.draggableProps}
+                                {...prov.dragHandleProps}
+                                className={`bg-white rounded-lg p-3 shadow-sm border-l-4 ${getPriorityColor(item.priority)} ${
+                                  snap.isDragging ? "shadow-lg rotate-2" : "hover:shadow-md"
+                                } transition-all cursor-grab active:cursor-grabbing`}
+                              >
+                                <div className="flex items-start justify-between gap-2 mb-2">
+                                  <div className="flex items-center gap-2">
+                                    {getTypeIcon(item.type)}
+                                    <span className="text-xs font-medium text-slate-600">{item.type}</span>
+                                  </div>
+                                  {item.storyPoints && (
+                                    <span className="badge badge-primary text-xs">{item.storyPoints} SP</span>
+                                  )}
                                 </div>
-                                {item.storyPoints && (
-                                  <span className="badge badge-primary text-xs">{item.storyPoints} SP</span>
+
+                                <h4 className="text-sm font-semibold text-slate-900 mb-2 leading-tight">
+                                  {item.title}
+                                </h4>
+
+                                {item.description && (
+                                  <p className="text-xs text-slate-500 line-clamp-2 mb-2">{item.description}</p>
                                 )}
+
+                                <div className="flex items-center justify-between">
+                                  <span
+                                    className={`text-xs px-2 py-0.5 rounded ${
+                                      item.priority === "Highest" || item.priority === "High"
+                                        ? "bg-red-50 text-red-700"
+                                        : item.priority === "Medium"
+                                          ? "bg-yellow-50 text-yellow-700"
+                                          : "bg-slate-100 text-slate-600"
+                                    }`}
+                                  >
+                                    {item.priority}
+                                  </span>
+                                </div>
                               </div>
-
-                              <h4 className="text-sm font-semibold text-slate-900 mb-2 leading-tight">{item.title}</h4>
-
-                              {item.description && (
-                                <p className="text-xs text-slate-500 line-clamp-2 mb-2">{item.description}</p>
-                              )}
-
-                              <div className="flex items-center justify-between">
-                                <span
-                                  className={`text-xs px-2 py-0.5 rounded ${
-                                    item.priority === "Highest" || item.priority === "High"
-                                      ? "bg-red-50 text-red-700"
-                                      : item.priority === "Medium"
-                                        ? "bg-yellow-50 text-yellow-700"
-                                        : "bg-slate-100 text-slate-600"
-                                  }`}
-                                >
-                                  {item.priority}
-                                </span>
-                              </div>
-                            </div>
-                          )}
-                        </Draggable>
-                      ))
-                    )}
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
-            </div>
-          ))}
-        </div>
-      </DragDropContext>
+                            )}
+                          </Draggable>
+                        ))
+                      )}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </div>
+            ))}
+          </div>
+        </DragDropContext>
+      </div>
     </div>
   )
 }
