@@ -10,8 +10,7 @@ import backlogRoutes from "./routes/backlog.routes.js"
 import boardRoutes from "./routes/board.routes.js"
 import changesRoutes from "./routes/changes.routes.js"
 import analyticsRoutes from "./routes/analytics.routes.js"
-import mlRoutes from "./routes/ml.routes.js"
-import impactRoutes from "./routes/impact.routes.js" // Import new impact analysis routes
+import impactRoutes from "./routes/impact.routes.js"
 import { errorHandler } from "./middleware/errorHandler.js"
 
 const app = express()
@@ -19,6 +18,7 @@ app.use(cors({ origin: config.CORS_ORIGIN, credentials: true }))
 app.use(express.json())
 app.use(morgan("dev"))
 
+// Routes
 app.use("/api/auth", authRoutes)
 app.use("/api/spaces", spacesRoutes)
 app.use("/api", sprintsRoutes)
@@ -26,8 +26,9 @@ app.use("/api", backlogRoutes)
 app.use("/api", boardRoutes)
 app.use("/api", changesRoutes)
 app.use("/api", analyticsRoutes)
-app.use("/api/ml", mlRoutes)
-app.use("/api/impact", impactRoutes) // Add impact analysis routes
+app.use("/api/impact", impactRoutes)
 
+// Error handler (must be last)
 app.use(errorHandler)
+
 export default app

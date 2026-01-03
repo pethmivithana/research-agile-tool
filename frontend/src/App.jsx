@@ -7,7 +7,6 @@ import SpaceDashboard from "./features/spaces/SpaceDashboard.jsx"
 import BacklogPage from "./features/backlog/BacklogPage.jsx"
 import BoardPage from "./features/board/BoardPage.jsx"
 import RequirementChangePage from "./features/changes/RequirementChangePage.jsx"
-import ChangeResultsPage from "./features/changes/ChangeResultsPage.jsx"
 import ChangeAnalyticsDashboard from "./features/analytics/ChangeAnalyticsDashboard.jsx"
 import SpaceSelectionPage from "./features/spaces/SpaceSelectionPage.jsx"
 
@@ -28,7 +27,6 @@ export default function App() {
             <Route path="changes" element={<RequirementChangePage />} />
           </Route>
           <Route path="/sprints/:sprintId/board" element={<BoardPage />} />
-          <Route path="/changes/:changeId/results" element={<ChangeResultsPage />} />
           <Route path="/analytics/:spaceId" element={<ChangeAnalyticsDashboard />} />
         </Route>
 

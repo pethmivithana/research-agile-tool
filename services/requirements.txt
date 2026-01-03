@@ -1,8 +1,0 @@
-fastapi
-uvicorn
-pandas
-numpy
-xgboost
-torch
-pytorch-tabnet
-sentence-transformers

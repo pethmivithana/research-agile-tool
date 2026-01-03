@@ -1,30 +1,27 @@
-"use client"
-
-import { NavLink, Outlet, useParams, useNavigate } from "react-router-dom"
-import SprintSidebar from "../sprints/SprintSidebar.jsx"
-import VelocityPanel from "../analytics/VelocityPanel.jsx"
-import { useQuery } from "@tanstack/react-query"
-import { api } from "../../api/axiosClient.js"
+import { NavLink, Outlet, useParams, useNavigate } from "react-router-dom";
+import SprintSidebar from "../sprints/SprintSidebar.jsx";
+import VelocityPanel from "../analytics/VelocityPanel.jsx";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../../api/axiosClient.js";
 
 export default function SpaceDashboard() {
-  const { spaceId } = useParams()
-  const navigate = useNavigate()
+  const { spaceId } = useParams();
+  const navigate = useNavigate();
 
   const { data: space } = useQuery({
     queryKey: ["space", spaceId],
     queryFn: async () => {
-      const { data } = await api.get(`/spaces/${spaceId}`)
-      return data
+      const { data } = await api.get(`/spaces/${spaceId}`);
+      return data;
     },
     enabled: !!spaceId,
-  })
+  });
 
   const tabs = [
     { to: `/spaces/${spaceId}/backlog`, label: "Backlog" },
-    { to: `/spaces/${spaceId}/changes`, label: "Requirement Tracker" },
+    { to: `/spaces/${spaceId}/changes`, label: "Impact Analysis" },
     { to: `/analytics/${spaceId}`, label: "Analytics" },
-    { to: "#", label: "Models & AI", disabled: true },
-  ]
+  ];
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -33,9 +30,18 @@ export default function SpaceDashboard() {
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <button onClick={() => navigate("/spaces")} className="btn btn-ghost p-2" title="Back to workspaces">
+              <button
+                onClick={() => navigate("/spaces")}
+                className="btn btn-ghost p-2"
+                title="Back to workspaces"
+              >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                  />
                 </svg>
               </button>
 
@@ -50,15 +56,20 @@ export default function SpaceDashboard() {
                     />
                   </svg>
                 </div>
+
                 <div>
-                  <h1 className="text-xl font-bold text-slate-900">{space?.name || "Workspace"}</h1>
-                  <p className="text-xs text-slate-500">Agile Project Management</p>
+                  <h1 className="text-xl font-bold text-slate-900">
+                    {space?.name || "Workspace"}
+                  </h1>
+                  <p className="text-xs text-slate-500">
+                    Agile Project Management
+                  </p>
                 </div>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
-              <button className="btn btn-ghost">
+              <button className="btn btn-ghost" title="Team members">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
@@ -68,13 +79,14 @@ export default function SpaceDashboard() {
                   />
                 </svg>
               </button>
-              <button className="btn btn-ghost">
+
+              <button className="btn btn-ghost" title="Settings">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-2.573 1.066c-.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
                   />
                   <path
                     strokeLinecap="round"
@@ -95,11 +107,9 @@ export default function SpaceDashboard() {
                 to={t.to}
                 className={({ isActive }) =>
                   `px-4 py-2 font-medium text-sm rounded-t-lg transition-colors ${
-                    t.disabled
-                      ? "opacity-50 pointer-events-none text-slate-400"
-                      : isActive
-                        ? "bg-slate-100 text-blue-600 border-b-2 border-blue-600"
-                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                    isActive
+                      ? "bg-slate-100 text-blue-600 border-b-2 border-blue-600"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                   }`
                 }
               >
@@ -128,5 +138,5 @@ export default function SpaceDashboard() {
         </main>
       </div>
     </div>
-  )
+  );
 }

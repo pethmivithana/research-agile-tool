@@ -5,7 +5,6 @@ import { useParams } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { api } from "../../api/axiosClient.js"
 import BacklogItemForm from "./BackLogItemForm.jsx"
-import SprintLoadAnalyzer from "../impact/SprintLoadAnalyzer.jsx"
 
 export default function BacklogPage() {
   const { spaceId } = useParams()
@@ -14,7 +13,6 @@ export default function BacklogPage() {
   const [showForm, setShowForm] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
   const [selectedSprint, setSelectedSprint] = useState("")
-  const [showAnalyzer, setShowAnalyzer] = useState(false)
 
   const { data: backlog, isLoading: backlogLoading } = useQuery({
     queryKey: ["backlog", spaceId],
@@ -48,14 +46,6 @@ export default function BacklogPage() {
     mutationFn: (itemId) => api.delete(`/work-items/${itemId}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["backlog", spaceId] })
-    },
-  })
-
-  const editMut = useMutation({
-    mutationFn: ({ id, updates }) => api.patch(`/work-items/${id}`, updates),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["backlog", spaceId] })
-      setEditingItem(null)
     },
   })
 
@@ -102,26 +92,6 @@ export default function BacklogPage() {
     )
   }
 
-  const handleAnalyzeAndAdd = () => {
-    if (!selectedSprint) return
-    setShowAnalyzer(true)
-  }
-
-  const handleAnalysisComplete = (analyses) => {
-    const highRiskItems = analyses.filter((a) => a.analysis?.overall_status?.includes("High Risk"))
-    if (highRiskItems.length > 0) {
-      const proceed = window.confirm(
-        `Warning: ${highRiskItems.length} item(s) have high risk. Do you want to proceed adding them to the sprint?`,
-      )
-      if (!proceed) {
-        setShowAnalyzer(false)
-        return
-      }
-    }
-    addToSprintMut.mutate(selectedSprint)
-    setShowAnalyzer(false)
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -132,12 +102,7 @@ export default function BacklogPage() {
         </div>
         <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 4v16m8-8H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
           {showForm || editingItem ? "Cancel" : "Create Item"}
         </button>
@@ -186,20 +151,16 @@ export default function BacklogPage() {
                     </option>
                   ))}
               </select>
-              <button onClick={handleAnalyzeAndAdd} disabled={!selectedSprint} className="btn btn-primary text-sm">
-                Analyze & Add to Sprint
+              <button
+                onClick={() => selectedSprint && addToSprintMut.mutate(selectedSprint)}
+                disabled={!selectedSprint || addToSprintMut.isPending}
+                className="btn btn-primary text-sm"
+              >
+                {addToSprintMut.isPending ? "Adding..." : "Add to Sprint"}
               </button>
             </div>
           </div>
         </div>
-      )}
-
-      {showAnalyzer && selectedSprint && (
-        <SprintLoadAnalyzer
-          sprintId={selectedSprint}
-          workItemIds={selected}
-          onAnalysisComplete={handleAnalysisComplete}
-        />
       )}
 
       {/* Backlog Items List */}
@@ -234,7 +195,7 @@ export default function BacklogPage() {
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"
+                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
                         />
                       </svg>
                       <p className="text-sm font-medium">No backlog items yet</p>
@@ -263,7 +224,7 @@ export default function BacklogPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="font-medium text-slate-900">{item.title}</div>
-                      {item.description && <div className="text-sm text-slate-500 mt-1">{item.description}</div>}
+                      {item.description && <div className="text-sm text-slate-500 mt-1 line-clamp-1">{item.description}</div>}
                     </td>
                     <td className="px-4 py-3">
                       <span className={`badge ${getPriorityColor(item.priority)}`}>{item.priority}</span>
