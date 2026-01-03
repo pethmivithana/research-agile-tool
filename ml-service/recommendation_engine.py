@@ -59,32 +59,68 @@ class RecommendationEngine:
     
     def generate_recommendations(
         self,
-        effort: Dict[str, Any],
-        quality_risk: Dict[str, Any],
-        productivity: Dict[str, Any],
-        schedule_risk: Dict[str, Any] = None
-    ) -> List[str]:
+        analysis_result: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
         """
+        Updated to use analysis_result directly and return objects with IDs and descriptions
         Generate recommendations based on prediction results
-        TODO: Implement sophisticated rule matching and prioritization
         """
         recommendations = []
         
-        # Hard-coded recommendations for now
-        if effort.get("predicted_hours", 0) > 40:
-            recommendations.append("🔴 High effort detected - Consider breaking down this story")
+        predicted_hours = analysis_result.get("predicted_hours", 0)
+        quality_prob = analysis_result.get("quality_risk_probability", 0)
+        prod_impact = analysis_result.get("productivity_impact", 0)
+        schedule_prob = analysis_result.get("schedule_risk_probability", 0)
+
+        if predicted_hours > 40:
+            recommendations.append({
+                "id": "REC_EFFORT",
+                "type": "high_effort",
+                "title": "Story Decomposition",
+                "description": "High effort detected (40h+). Break this story into 2-3 smaller tasks to improve flow.",
+                "action": "Split Ticket",
+                "severity": "high"
+            })
         
-        if quality_risk.get("probability", 0) > 0.7:
-            recommendations.append("🟡 Quality risk high - Allocate extra testing resources")
+        if quality_prob > 0.6:
+            recommendations.append({
+                "id": "REC_QUALITY",
+                "type": "high_quality_risk",
+                "title": "QA Enhancement",
+                "description": "High quality risk detected. Allocate 20% more time for code reviews and unit testing.",
+                "action": "Add QA Buffer",
+                "severity": "medium"
+            })
         
-        if productivity.get("impact_percentage", 0) < -20:
-            recommendations.append("🟠 Severe productivity impact - Remove lower priority items first")
+        if prod_impact > 5: # Impact in days
+            recommendations.append({
+                "id": "REC_PRODUCTIVITY",
+                "type": "productivity_impact",
+                "title": "Capacity Re-balancing",
+                "description": "Significant productivity impact. Consider removing 1-2 lower priority items from current sprint.",
+                "action": "Defer Low-Prio Items",
+                "severity": "high"
+            })
         
-        if schedule_risk and schedule_risk.get("probability", 0) > 0.8:
-            recommendations.append("🔴 Schedule risk critical - DO NOT add to current sprint")
+        if schedule_prob > 0.7:
+            recommendations.append({
+                "id": "REC_SCHEDULE",
+                "type": "schedule_risk",
+                "title": "Sprint Spillover Protection",
+                "description": "Critical schedule risk. Move this requirement to the next sprint to avoid endangering the current goal.",
+                "action": "Move to Next Sprint",
+                "severity": "critical"
+            })
         
         if not recommendations:
-            recommendations.append("✅ No major concerns - Safe to proceed")
+            recommendations.append({
+                "id": "REC_SAFE",
+                "type": "safe",
+                "title": "Standard Implementation",
+                "description": "Impact analysis shows low risk. Proceed with standard development practices.",
+                "action": "Approve Change",
+                "severity": "low"
+            })
         
         return recommendations
     
@@ -121,15 +157,5 @@ class RecommendationEngine:
 # Global instance for future use
 recommendation_engine = RecommendationEngine()
 
-# Placeholder function for backend integration
-def get_recommendations(analysis_result: Dict[str, Any]) -> List[str]:
-    """
-    Entry point for recommendation generation
-    TODO: Integrate with FastAPI endpoints
-    """
-    return recommendation_engine.generate_recommendations(
-        effort=analysis_result.get("effort", {}),
-        quality_risk=analysis_result.get("quality_risk", {}),
-        productivity=analysis_result.get("productivity_impact", {}),
-        schedule_risk=analysis_result.get("schedule_risk", {})
-    )
+def get_recommendations(analysis_result: Dict[str, Any]) -> List[Dict[str, Any]]:
+    return recommendation_engine.generate_recommendations(analysis_result)
