@@ -1,25 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
 @layer base {
   :root {
-    /* White-Blue-Black (60-30-10) color system */
-    --background: 0 0% 98%;
-    --foreground: 222 47% 11%;
+    /* Updated to 60-30-10 rule: 60% white, 30% blue, 10% black/accents */
+    --font-sans: var(--font-geist-sans);
+    --font-mono: var(--font-geist-mono);
+
+    /* Primary: White (60% - backgrounds, surfaces) */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 13%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 0 0% 13%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 217 91% 60%;
+    --popover-foreground: 0 0% 13%;
+
+    /* Secondary: Blue (30% - primary accents, interactive) */
+    --primary: 217 100% 50%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 214 32% 91%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
-    --accent: 217 91% 60%;
+    --secondary: 217 91% 60%;
+    --secondary-foreground: 0 0% 100%;
+
+    /* Tertiary: Gray (supporting surfaces) */
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 40%;
+    --accent: 217 100% 50%;
     --accent-foreground: 0 0% 100%;
+
+    /* Destructive: Red (10% - critical states) */
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 217 91% 60%;
+
+    /* Neutral */
+    --border: 0 0% 90%;
+    --input: 0 0% 96%;
+    --ring: 217 100% 50%;
     --radius: 0.5rem;
+
+    /* Chart colors */
+    --chart-1: 217 100% 50%;
+    --chart-2: 200 100% 50%;
+    --chart-3: 180 100% 45%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+  }
+
+  .dark {
+    --background: 0 0% 8%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 13%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 13%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 217 100% 60%;
+    --primary-foreground: 0 0% 8%;
+    --secondary: 217 91% 70%;
+    --secondary-foreground: 0 0% 8%;
+    --muted: 0 0% 20%;
+    --muted-foreground: 0 0% 70%;
+    --accent: 217 100% 60%;
+    --accent-foreground: 0 0% 8%;
+    --destructive: 0 84% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 217 100% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
   }
 }
