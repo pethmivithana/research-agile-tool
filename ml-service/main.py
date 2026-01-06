@@ -11,10 +11,13 @@ from typing import Dict, List, Any, Optional
 import warnings
 import zipfile
 from recommendation_engine import get_recommendations  # Import the helper
+<<<<<<< HEAD
 from sprint_context import SprintContextEngine  # Explicit import for sprint context
 from rules_engine import RulesEngine  # Explicit import for rules engine
+=======
+>>>>>>> 331fde8aafb86603570aed680dd22ebe4747557a
 
-# --- 0. WINDOWS FIXES ---
+# --- 0. WINDOWS / ENV FIXES ---
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 warnings.filterwarnings("ignore")
 
@@ -86,6 +89,7 @@ class RecommendationRequest(BaseModel):
 
 class AnalysisResponse(BaseModel):
     predicted_hours: float
+    confidence_interval: str  # e.g., "12.5h - 18.2h"
     schedule_risk_probability: float
     schedule_risk_label: str
     productivity_impact: float
@@ -98,15 +102,32 @@ class AnalysisResponse(BaseModel):
 def load_models():
     print("\n🔍 INITIALIZING AGILE ML SERVICE...")
 
-    # A. EFFORT
+    # A. EFFORT (3 Quantile Models + Fixed Artifact)
     try:
         eff_path = os.path.join(MODELS_DIR, "effort_artifacts.pkl")
         if os.path.exists(eff_path):
             eff_art = joblib.load(eff_path)
+            
+            # Load all 3 JSON models
+            m_lower = xgb.XGBRegressor()
+            m_lower.load_model(os.path.join(MODELS_DIR, "effort_model_lower.json"))
+
             m_med = xgb.XGBRegressor()
             m_med.load_model(os.path.join(MODELS_DIR, "effort_model_median.json"))
-            loaded_assets["effort"] = {"tfidf": eff_art["tfidf"], "le_type": eff_art["le_type"], "median": m_med}
-            print("✅ Effort Models Loaded")
+            
+            m_upper = xgb.XGBRegressor()
+            m_upper.load_model(os.path.join(MODELS_DIR, "effort_model_upper.json"))
+
+            loaded_assets["effort"] = {
+                "tfidf": eff_art["tfidf"], 
+                "le_type": eff_art["le_type"], 
+                "lower": m_lower,
+                "median": m_med,
+                "upper": m_upper
+            }
+            print("✅ Effort Models Loaded (Cone of Uncertainty)")
+        else:
+            print("❌ Effort Artifacts NOT FOUND.")
     except Exception as e: print(f"❌ Effort Load Error: {e}")
 
     # B. PRODUCTIVITY
@@ -140,7 +161,9 @@ def load_models():
                 "model": sch_model,
                 "imputer": sch_artifacts.get("imputer"),
                 "le_type": sch_artifacts.get("le_type"),
-                "le_prio": sch_artifacts.get("le_prio")
+                "le_prio": sch_artifacts.get("le_prio"),
+                # Robust Label Mapping
+                "label_map": sch_artifacts.get("label_map", {0:"Critical Risk", 1:"High Risk", 2:"Low Risk", 3:"Medium Risk"})
             }
             print("✅ Schedule Risk Model Loaded")
         else:
@@ -172,18 +195,47 @@ def safe_transform(encoder, value, default=0):
     except: return default
 
 def predict_effort(data: TicketData):
+    """
+    Returns (Median Hours, Confidence Interval String)
+    Calculates range using Lower and Upper Quantile Models
+    """
     assets = loaded_assets["effort"]
-    if not assets: return float(data.story_points * 8), 0.0
+    # Fallback if models not loaded
+    if not assets: 
+        return float(data.story_points * 8), "Rule-Based"
+    
     try:
+        # 1. Text Vectorization
         txt = f"{data.title} {data.description}"
         txt_vec = assets["tfidf"].transform([txt]).toarray()
+        
+        # 2. Context Features
         t_c = safe_transform(assets["le_type"], data.issue_type)
         pressure = 1.0 / max(0.5, data.days_remaining)
+        
+        # 3. Assemble Vector
+        # [sprint_load, velocity, pressure, links, type_code] + [txt_0...txt_99]
         meta = np.array([[data.sprint_load_7d, data.team_velocity_14d, pressure, data.total_links, t_c]])
         vec = np.hstack([meta, txt_vec])
-        est = float(assets["median"].predict(vec)[0])
-        return float(est * 8.0), 1.0
-    except: return float(data.story_points * 8), 0.0
+        
+        # 4. Predict Quantiles (Output is Story Points -> Convert to Hours * 8)
+        raw_lower = float(assets["lower"].predict(vec)[0])
+        raw_med = float(assets["median"].predict(vec)[0])
+        raw_upper = float(assets["upper"].predict(vec)[0])
+        
+        # 5. Sanity Checks & Formatting
+        h_low = max(0.5, raw_lower * 8.0)
+        h_med = max(h_low, raw_med * 8.0)
+        h_high = max(h_med, raw_upper * 8.0)
+        
+        conf_interval = f"{h_low:.1f}h - {h_high:.1f}h"
+        
+        return h_med, conf_interval
+
+    except Exception as e:
+        print(f"Effort Prediction Error: {e}")
+        # Return fallback but log the error to console
+        return float(data.story_points * 8), "Error"
 
 def predict_productivity(data: TicketData):
     assets = loaded_assets["productivity"]
@@ -212,6 +264,7 @@ def predict_schedule(data: TicketData):
         pr = data.story_points / max(0.1, data.days_remaining)
         t_c = safe_transform(assets["le_type"], data.issue_type)
         p_c = safe_transform(assets["le_prio"], data.priority)
+<<<<<<< HEAD
         raw_vec = np.array([[data.story_points, data.total_links, data.total_comments, data.author_workload_14d, ld, cd, pr, t_c, p_c]])
         if assets["imputer"]: final_vec = assets["imputer"].transform(raw_vec)
         else: final_vec = raw_vec
@@ -220,6 +273,32 @@ def predict_schedule(data: TicketData):
         labels = ["Critical Risk", "High Risk", "Low Risk", "Medium Risk"] 
         return labels[idx] if idx < len(labels) else "Medium Risk", float(probs[idx])
     except: return "Medium Risk", 0.5
+=======
+        
+        raw_vec = np.array([[data.story_points, data.total_links, data.total_comments, 
+                             data.author_workload_14d, ld, cd, pr, t_c, p_c]])
+        
+        if assets["imputer"]: final_vec = assets["imputer"].transform(raw_vec)
+        else: final_vec = raw_vec
+        
+        probs = assets["model"].predict_proba(final_vec)[0]
+        idx = np.argmax(probs)
+        
+        label_map = assets.get("label_map", {})
+        if label_map:
+             # Handle potential string/int key mismatch in JSON
+            predicted_label = label_map.get(idx) or label_map.get(str(idx)) or "Medium"
+        else:
+            fallback = ["Critical", "High", "Low", "Medium"]
+            predicted_label = fallback[idx] if idx < 4 else "Medium"
+            
+        if "Risk" not in predicted_label: predicted_label += " Risk"
+            
+        return predicted_label, float(probs[idx])
+    except Exception as e: 
+        print(f"Schedule Error: {e}")
+        return "Medium Risk", 0.5
+>>>>>>> 331fde8aafb86603570aed680dd22ebe4747557a
 
 def predict_quality(data: TicketData):
     """
@@ -233,6 +312,7 @@ def predict_quality(data: TicketData):
         return "Low", 0.0
     
     try:
+<<<<<<< HEAD
         # 1. Feature Prep
         # Priority Encoding
         if assets["le_prio"]:
@@ -268,6 +348,31 @@ def predict_quality(data: TicketData):
         lbl = "High" if prob_defect > 0.5 else "Low"
         return lbl, prob_defect
         
+=======
+        # Feature Mapping
+        if assets["le_prio"]: p_c = safe_transform(assets["le_prio"], data.priority, default=2)
+        else: p_c = 2
+        comp = data.story_points * (data.total_links + 1)
+        
+        feature_names = ["Story Points", "Total Links", "Total Comments", "Author Workload", "Complexity Score", "Priority Level"]
+        
+        vec = np.array([[float(data.story_points), float(data.total_links), float(data.total_comments),
+                         float(data.author_workload_14d), float(comp), float(p_c)]])
+        
+        probs = assets["model"].predict_proba(vec)[0]
+        prob_defect = float(probs[1]) 
+        
+        # Explainability
+        explain_matrix, masks = assets["model"].explain(vec)
+        top_idx = np.argmax(explain_matrix[0])
+        reason = feature_names[top_idx]
+
+        if prob_defect > 0.5:
+            print(f"   [Quality] Risk: High ({prob_defect:.2f}). Reason: {reason}")
+            return f"High (Due to {reason})", prob_defect
+        else:
+            return "Low", prob_defect
+>>>>>>> 331fde8aafb86603570aed680dd22ebe4747557a
     except Exception as e:
         print(f"🔴 Quality Error during prediction: {e}")
         return "Low", 0.0
@@ -276,11 +381,19 @@ def predict_quality(data: TicketData):
 def analyze_impact(data: TicketData):
     print(f"\n📨 Analyzing: {data.title}")
     
+<<<<<<< HEAD
     eff_h, _ = predict_effort(data)
+=======
+    # 1. Effort (Returns median + range string)
+    eff_h, eff_conf = predict_effort(data)
+    
+    # 2. Others
+>>>>>>> 331fde8aafb86603570aed680dd22ebe4747557a
     prod_d = predict_productivity(data)
     sch_lbl, sch_prob = predict_schedule(data)
     qual_lbl, qual_prob = predict_quality(data)
     
+<<<<<<< HEAD
     analysis_results = {
         "predicted_hours": eff_h,
         "schedule_risk_probability": sch_prob,
@@ -302,9 +415,30 @@ def analyze_impact(data: TicketData):
     recs = get_recommendations(analysis_results, item_data)
     
     print(f"   Results -> Effort: {eff_h:.1f}h | Sched: {sch_lbl} | Prod: {prod_d:.1f}d | Qual: {qual_lbl} ({qual_prob:.0%})")
+=======
+    # 3. Console Log
+    print(f"   Results -> Effort: {eff_h:.1f}h ({eff_conf}) | Sched: {sch_lbl} | Prod: {prod_d:.1f}d | Qual: {qual_lbl} ({qual_prob:.0%})")
+>>>>>>> 331fde8aafb86603570aed680dd22ebe4747557a
     
+    # 4. Generate Recommendations (Internal Call)
+    analysis_results = {
+        "predicted_hours": eff_h,
+        "schedule_risk_probability": sch_prob,
+        "productivity_impact": prod_d,
+        "quality_risk_probability": qual_prob
+    }
+    item_data = {
+        "title": data.title, "description": data.description,
+        "story_points": data.story_points, "priority": data.priority, "issue_type": data.issue_type
+    }
+    try:
+        rec_context = {"sprint_load_7d": data.sprint_load_7d, "days_remaining": data.days_remaining}
+        _ = get_recommendations(analysis_results, item_data, rec_context)
+    except: pass
+
     return AnalysisResponse(
         predicted_hours=round(eff_h, 1),
+        confidence_interval=eff_conf,
         schedule_risk_probability=round(sch_prob, 2),
         schedule_risk_label=sch_lbl,
         productivity_impact=round(prod_d, 1),
@@ -315,17 +449,22 @@ def analyze_impact(data: TicketData):
 
 @app.post("/recommendations/generate")
 def generate_recommendations(request: RecommendationRequest):
+<<<<<<< HEAD
     """
     Generate actionable recommendations based on impact analysis results
     """
     print(f"\n🧠 Generating recommendations for: {request.item_data.get('title', 'Unknown')}")
     
+=======
+    print(f"\n🧠 Generating recommendations for: {request.item_data.get('title', 'Unknown')}")
+>>>>>>> 331fde8aafb86603570aed680dd22ebe4747557a
     try:
         recommendations = get_recommendations(
             request.analysis_result,
             request.item_data,
             request.sprint_context
         )
+<<<<<<< HEAD
         
         print(f"   Decision: {recommendations['decision'].upper()}")
         print(f"   Generated {len(recommendations.get('alternative_options', [])) + 1} options")
@@ -348,13 +487,31 @@ def generate_recommendations(request: RecommendationRequest):
                 "level": "UNKNOWN",
                 "summary": "Recommendation engine encountered an error."
             }
+=======
+        print(f"   Decision: {recommendations['decision'].upper()}")
+        print(f"   Generated {len(recommendations.get('alternative_options', [])) + 1} options")
+        return recommendations
+    except Exception as e:
+        print(f"❌ Recommendation Error: {e}")
+        return {
+            "decision": "requires_manual_review",
+            "primary_recommendation": {"id": "FALLBACK", "title": "Manual Review Required", "description": "Error generating recommendations.", "severity": "medium"},
+            "alternative_options": [],
+            "risk_summary": {"level": "UNKNOWN", "summary": "Error encountered."}
+>>>>>>> 331fde8aafb86603570aed680dd22ebe4747557a
         }
 
 @app.get("/health")
 def health_check():
+<<<<<<< HEAD
     """Check service health and model status"""
     return {
         "status": "online",
+=======
+    # Return "ok" to ensure frontend shows ONLINE
+    return {
+        "status": "ok",
+>>>>>>> 331fde8aafb86603570aed680dd22ebe4747557a
         "models_loaded": {
             "effort": loaded_assets["effort"] is not None,
             "productivity": loaded_assets["productivity"] is not None,
