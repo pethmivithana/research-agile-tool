@@ -11,14 +11,15 @@ export default function SprintForm({ sprint, onCreated, onCancel }) {
   const [name, setName] = useState(sprint?.name || "")
   const [goal, setGoal] = useState(sprint?.goal || "")
   const [duration, setDuration] = useState(sprint?.duration || "2w")
+  const [startDate, setStartDate] = useState(sprint?.startDate || "")
   const [loading, setLoading] = useState(false)
 
   const createMut = useMutation({
     mutationFn: () => {
       if (sprint) {
-        return api.patch(`/sprints/${sprint._id}`, { name, goal, duration })
+        return api.patch(`/sprints/${sprint._id}`, { name, goal, duration, startDate })
       }
-      return api.post(`/spaces/${spaceId}/sprints`, { name, goal, duration })
+      return api.post(`/spaces/${spaceId}/sprints`, { name, goal, duration, startDate })
     },
     onSuccess: () => {
       qc.invalidateQueries(["sprints", spaceId])
@@ -27,6 +28,7 @@ export default function SprintForm({ sprint, onCreated, onCancel }) {
         setName("")
         setGoal("")
         setDuration("2w")
+        setStartDate("")
       }
     },
   })
@@ -42,54 +44,64 @@ export default function SprintForm({ sprint, onCreated, onCancel }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-lg p-4 border border-slate-200 space-y-3">
-      <div className="flex justify-between items-center">
-        <h4 className="font-semibold text-slate-900">{sprint ? "Edit Sprint" : "Create Sprint"}</h4>
-        {onCancel && (
-          <button type="button" onClick={onCancel} className="text-slate-400 hover:text-slate-600">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        )}
-      </div>
-
-      <div>
-        <label className="label text-xs">Sprint Name *</label>
+    <form onSubmit={handleSubmit} className="bg-zinc-900 border border-white/10 rounded-lg p-4 space-y-4">
+      <div className="space-y-1">
+        <label className="text-[10px] font-bold text-zinc-500 uppercase">Sprint Name</label>
         <input
-          className="input text-sm"
-          placeholder="e.g., Sprint 1, Q1 Sprint"
+          className="w-full bg-black border border-white/10 rounded px-3 py-2 text-sm focus:border-white/20 outline-none"
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
         />
       </div>
 
-      <div>
-        <label className="label text-xs">Duration</label>
-        <select className="select text-sm" value={duration} onChange={(e) => setDuration(e.target.value)}>
-          <option value="1w">1 week</option>
-          <option value="2w">2 weeks</option>
-          <option value="3w">3 weeks</option>
-          <option value="4w">4 weeks</option>
-          <option value="custom">Custom</option>
-        </select>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-1">
+          <label className="text-[10px] font-bold text-zinc-500 uppercase">Duration</label>
+          <select
+            className="w-full bg-black border border-white/10 rounded px-3 py-2 text-sm outline-none"
+            value={duration}
+            onChange={(e) => setDuration(e.target.value)}
+          >
+            <option value="1w">1 Week</option>
+            <option value="2w">2 Weeks</option>
+            <option value="3w">3 Weeks</option>
+            <option value="4w">4 Weeks</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+        <div className="space-y-1">
+          <label className="text-[10px] font-bold text-zinc-500 uppercase">Start Date</label>
+          <input
+            type="date"
+            className="w-full bg-black border border-white/10 rounded px-3 py-2 text-sm outline-none"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+        </div>
       </div>
 
-      <div>
-        <label className="label text-xs">Sprint Goal</label>
+      <div className="space-y-1">
+        <label className="text-[10px] font-bold text-zinc-500 uppercase">Sprint Goal</label>
         <textarea
-          className="input text-sm min-h-[60px]"
-          placeholder="What do you want to achieve in this sprint?"
+          className="w-full bg-black border border-white/10 rounded px-3 py-2 text-sm min-h-[80px] outline-none"
           value={goal}
           onChange={(e) => setGoal(e.target.value)}
-          rows={2}
         />
       </div>
 
-      <button type="submit" className="btn btn-primary w-full text-sm" disabled={loading || !name}>
-        {loading ? (sprint ? "Updating..." : "Creating...") : sprint ? "Update Sprint" : "Create Sprint"}
-      </button>
+      <div className="flex gap-2">
+        <button type="submit" className="flex-1 bg-white text-black font-bold py-2 rounded text-sm hover:bg-zinc-200">
+          {sprint ? "Save Changes" : "Create Sprint"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-4 py-2 border border-white/10 rounded text-sm hover:bg-white/5"
+        >
+          Cancel
+        </button>
+      </div>
     </form>
   )
 }
