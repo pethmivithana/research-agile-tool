@@ -5,11 +5,10 @@ import {
   analyzeSprintLoad,
   analyzeMidSprintImpact,
   batchAnalyzeItems,
+  applyRecommendation, // Import applyRecommendation controller
 } from "../controllers/impact.controller.js";
 
 const router = express.Router();
-
-// 
 
 // 1. Analyze an item sitting in the Backlog (GET)
 // Used when a user clicks "Analyze" on a ticket not yet in a sprint
@@ -23,7 +22,10 @@ router.get("/sprints/:sprintId/items/:workItemId/analyze", protect, analyzeSprin
 // Used when the user types into the "Requirement Change" form (Your specific snippet logic)
 router.post("/sprints/:sprintId/analyze-impact", protect, analyzeMidSprintImpact);
 
-// 4. Batch Analysis (POST)
+// Used when the PM selects and applies a recommendation option
+router.post("/sprints/:sprintId/apply-recommendation", protect, applyRecommendation);
+
+// 5. Batch Analysis (POST)
 // Used for bulk updates or re-analyzing the whole sprint
 router.post("/sprints/batch-analyze", protect, batchAnalyzeItems);
 

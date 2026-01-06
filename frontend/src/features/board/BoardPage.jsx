@@ -2,16 +2,24 @@
 
 import { useParams } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd"
+import { DragDropContext, Draggable } from "react-beautiful-dnd"
+import { StrictModeDroppable } from "../../components/StrictModeDroppable"
 import { api } from "../../api/axiosClient.js"
 
-const columns = ["To Do", "In Progress", "In Review", "Done"]
+const columnGroups = {
+  "To Do": ["To Do", "Triaged", "Design WIP"],
+  "In Progress": ["In Progress", "Design Review"],
+  "In Review": ["In Review", "Ready for Development"],
+  Done: ["Done", "Fixed"],
+}
+
+const mainColumns = Object.keys(columnGroups)
 
 export default function BoardPage() {
   const { sprintId } = useParams()
   const qc = useQueryClient()
 
-  const { data, refetch } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["board", sprintId],
     queryFn: async () => {
       const res = await api.get(`/sprints/${sprintId}/board`)
@@ -28,146 +36,162 @@ export default function BoardPage() {
   })
 
   const onDragEnd = async (result) => {
-    const { draggableId, destination } = result
-    if (!destination) return
-    await moveMut.mutateAsync({ workItemId: draggableId, toCol: destination.droppableId })
+    const { draggableId, source, destination } = result
+    if (!destination || (source.droppableId === destination.droppableId && source.index === destination.index)) return
+
+    const oldData = qc.getQueryData(["board", sprintId])
+    if (!oldData) return
+
+    // Find the item to determine its type and mapping
+    const item = Object.values(oldData)
+      .flat()
+      .find((i) => i._id === draggableId)
+    if (!item) return
+
+    // Map high-level column to work-type specific status
+    const targetStatusMapping = {
+      Bug: { "To Do": "Triaged", Done: "Fixed" },
+      Story: {
+        "To Do": "Design WIP",
+        "In Progress": "Design Review",
+        "In Review": "Ready for Development",
+      },
+    }
+
+    const targetStatus = targetStatusMapping[item.type]?.[destination.droppableId] || destination.droppableId
+
+    // Optimistic Update
+    const newData = JSON.parse(JSON.stringify(oldData))
+    // Remove from source
+    Object.keys(newData).forEach((col) => {
+      newData[col] = newData[col].filter((i) => i._id !== draggableId)
+    })
+    // Add to target (backend will handle the actual group logic, we just move to the target key for UI)
+    if (!newData[targetStatus]) newData[targetStatus] = []
+    newData[targetStatus].splice(destination.index, 0, { ...item, status: targetStatus })
+
+    qc.setQueryData(["board", sprintId], newData)
+
+    try {
+      await moveMut.mutateAsync({ workItemId: draggableId, toCol: targetStatus })
+    } catch (error) {
+      qc.setQueryData(["board", sprintId], oldData)
+      console.error("[v0] Board move failed", error)
+    }
   }
 
-  const itemsByCol = data || { "To Do": [], "In Progress": [], "In Review": [], Done: [] }
+  // Group items into the 4 main columns for the UI
+  const groupedItems = mainColumns.reduce((acc, col) => {
+    acc[col] = []
+    columnGroups[col].forEach((status) => {
+      if (data?.[status]) acc[col].push(...data[status])
+    })
+    return acc
+  }, {})
 
   const getPriorityColor = (priority) => {
     const colors = {
-      Highest: "border-red-500",
+      Highest: "border-red-600",
       High: "border-orange-500",
-      Medium: "border-yellow-500",
+      Medium: "border-amber-400",
       Low: "border-blue-500",
-      Lowest: "border-slate-500",
+      Lowest: "border-zinc-600",
     }
     return colors[priority] || colors.Medium
   }
 
-  const getTypeIcon = (type) => {
-    if (type === "Bug")
-      return (
-        <svg className="w-4 h-4 text-red-600" fill="currentColor" viewBox="0 0 20 20">
-          <path d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.599-.8a1 1 0 01.894 1.79l-1.233.616 1.738 5.42a1 1 0 01-.285 1.05A3.989 3.989 0 0115 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.715-5.349L11 6.477V9a1 1 0 11-2 0V6.477L6.237 7.582l1.715 5.349a1 1 0 01-.285 1.05A3.989 3.989 0 015 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.738-5.42-1.233-.617a1 1 0 01.894-1.788l1.599.799L9 4.323V3a1 1 0 011-1z" />
-        </svg>
-      )
-    if (type === "Story")
-      return (
-        <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-          <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
-        </svg>
-      )
+  if (isLoading) {
     return (
-      <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-        <path
-          fillRule="evenodd"
-          d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"
-          clipRule="evenodd"
-        />
-      </svg>
+      <div className="flex items-center justify-center h-full text-gray-500 text-sm font-bold uppercase tracking-wider">
+        Loading Board...
+      </div>
     )
   }
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900">Sprint Board</h2>
-        <p className="text-slate-600 mt-1">Drag and drop tasks to update their status</p>
+    <div className="h-full flex flex-col space-y-6 bg-gray-50">
+      <div className="flex justify-between items-end px-4">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Kanban Board</h2>
+          <p className="text-sm text-gray-600 mt-1">Sprint cycle management • Live sync</p>
+        </div>
       </div>
 
-      <div>
-        <DragDropContext onDragEnd={onDragEnd}>
-          <div className="grid grid-cols-4 gap-4">
-            {columns.map((col) => (
-              <div key={col} className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-bold text-slate-700 text-sm uppercase tracking-wide">{col}</h3>
-                  <span className="badge badge-secondary text-xs">{itemsByCol[col]?.length || 0}</span>
-                </div>
+      <DragDropContext onDragEnd={onDragEnd}>
+        <div className="flex-1 flex gap-4 px-4 overflow-x-auto pb-4">
+          {mainColumns.map((col) => (
+            <div
+              key={col}
+              className="flex-shrink-0 w-80 flex flex-col bg-white rounded-xl border border-gray-200 shadow-sm"
+            >
+              <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-gray-50 rounded-t-xl">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-gray-700">{col}</h3>
+                <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full">
+                  {groupedItems[col]?.length || 0}
+                </span>
+              </div>
 
-                <Droppable droppableId={col}>
-                  {(provided, snapshot) => (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
-                      className={`min-h-[500px] space-y-2 ${snapshot.isDraggingOver ? "bg-blue-50 rounded-lg p-2" : ""}`}
-                    >
-                      {itemsByCol[col]?.length === 0 ? (
-                        <div className="text-center py-8 text-slate-400">
-                          <svg
-                            className="w-8 h-8 mx-auto mb-2 opacity-50"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
+              <StrictModeDroppable droppableId={col}>
+                {(provided, snapshot) => (
+                  <div
+                    {...provided.droppableProps}
+                    ref={provided.innerRef}
+                    className={`flex-1 p-3 space-y-3 transition-colors min-h-[200px] ${
+                      snapshot.isDraggingOver ? "bg-blue-50" : ""
+                    }`}
+                  >
+                    {groupedItems[col]?.map((item, i) => (
+                      <Draggable key={item._id} draggableId={item._id} index={i}>
+                        {(prov, snap) => (
+                          <div
+                            ref={prov.innerRef}
+                            {...prov.draggableProps}
+                            {...prov.dragHandleProps}
+                            className={`group bg-white border-2 rounded-lg p-3 shadow-md transition-all cursor-grab active:cursor-grabbing ${
+                              snap.isDragging
+                                ? "ring-2 ring-blue-400 rotate-1 scale-105 z-50 shadow-xl"
+                                : "hover:shadow-lg hover:border-gray-300"
+                            } border-l-4 ${getPriorityColor(item.priority).replace("border-", "border-l-")}`}
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
-                            />
-                          </svg>
-                          <p className="text-xs">No tasks</p>
-                        </div>
-                      ) : (
-                        itemsByCol[col]?.map((item, i) => (
-                          <Draggable key={item._id} draggableId={item._id} index={i}>
-                            {(prov, snap) => (
-                              <div
-                                ref={prov.innerRef}
-                                {...prov.draggableProps}
-                                {...prov.dragHandleProps}
-                                className={`bg-white rounded-lg p-3 shadow-sm border-l-4 ${getPriorityColor(item.priority)} ${
-                                  snap.isDragging ? "shadow-lg rotate-2" : "hover:shadow-md"
-                                } transition-all cursor-grab active:cursor-grabbing`}
-                              >
-                                <div className="flex items-start justify-between gap-2 mb-2">
-                                  <div className="flex items-center gap-2">
-                                    {getTypeIcon(item.type)}
-                                    <span className="text-xs font-medium text-slate-600">{item.type}</span>
-                                  </div>
-                                  {item.storyPoints && (
-                                    <span className="badge badge-primary text-xs">{item.storyPoints} SP</span>
-                                  )}
-                                </div>
-
-                                <h4 className="text-sm font-semibold text-slate-900 mb-2 leading-tight">
-                                  {item.title}
-                                </h4>
-
-                                {item.description && (
-                                  <p className="text-xs text-slate-500 line-clamp-2 mb-2">{item.description}</p>
-                                )}
-
-                                <div className="flex items-center justify-between">
-                                  <span
-                                    className={`text-xs px-2 py-0.5 rounded ${
-                                      item.priority === "Highest" || item.priority === "High"
-                                        ? "bg-red-50 text-red-700"
-                                        : item.priority === "Medium"
-                                          ? "bg-yellow-50 text-yellow-700"
-                                          : "bg-slate-100 text-slate-600"
-                                    }`}
-                                  >
-                                    {item.priority}
+                            <div className="flex justify-between items-start mb-2">
+                              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide bg-gray-100 px-2 py-0.5 rounded">
+                                {item.type}
+                              </span>
+                              <div className="flex items-center gap-1.5">
+                                {item.storyPoints && (
+                                  <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                                    {item.storyPoints} SP
                                   </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <h4 className="text-sm font-semibold text-gray-900 leading-snug mb-3 line-clamp-2">
+                              {item.title}
+                            </h4>
+
+                            <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                              <div className="flex -space-x-2">
+                                <div className="w-6 h-6 rounded-full bg-blue-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white">
+                                  {item.assignee?.name?.[0] || "?"}
                                 </div>
                               </div>
-                            )}
-                          </Draggable>
-                        ))
-                      )}
-                      {provided.placeholder}
-                    </div>
-                  )}
-                </Droppable>
-              </div>
-            ))}
-          </div>
-        </DragDropContext>
-      </div>
+                              <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
+                                {item.status}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </StrictModeDroppable>
+            </div>
+          ))}
+        </div>
+      </DragDropContext>
     </div>
   )
 }

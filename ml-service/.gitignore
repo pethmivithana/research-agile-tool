@@ -1,0 +1,49 @@
+# =========================
+# Python cache & compiled files
+# =========================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# =========================
+# Virtual Environment (DO NOT COMMIT)
+# =========================
+venv/
+.venv/
+env/
+ENV/
+
+# =========================
+# Environment variables
+# =========================
+.env
+.env.local
+
+# =========================
+# Logs & runtime files
+# =========================
+*.log
+*.tmp
+
+# =========================
+# Jupyter / Colab artifacts (if any)
+# =========================
+.ipynb_checkpoints/
+
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# IMPORTANT: Models folder is TRACKED
+# (Intentionally NOT ignored)
+# =========================
+# models/
+# *.pkl
+# *.pth
+# *.pt
+# *.joblib
+# *.json

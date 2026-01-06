@@ -1,47 +1,39 @@
-import { NavLink, Outlet, useParams, useNavigate } from "react-router-dom";
-import SprintSidebar from "../sprints/SprintSidebar.jsx";
-import VelocityPanel from "../analytics/VelocityPanel.jsx";
-import { useQuery } from "@tanstack/react-query";
-import { api } from "../../api/axiosClient.js";
+"use client"
+
+import { NavLink, Outlet, useParams, useNavigate } from "react-router-dom"
+import SprintSidebar from "../sprints/SprintSidebar.jsx"
+import VelocityPanel from "../analytics/VelocityPanel.jsx"
+import { useQuery } from "@tanstack/react-query"
+import { api } from "../../api/axiosClient.js"
 
 export default function SpaceDashboard() {
-  const { spaceId } = useParams();
-  const navigate = useNavigate();
+  const { spaceId } = useParams()
+  const navigate = useNavigate()
 
   const { data: space } = useQuery({
     queryKey: ["space", spaceId],
     queryFn: async () => {
-      const { data } = await api.get(`/spaces/${spaceId}`);
-      return data;
+      const { data } = await api.get(`/spaces/${spaceId}`)
+      return data
     },
     enabled: !!spaceId,
-  });
+  })
 
   const tabs = [
     { to: `/spaces/${spaceId}/backlog`, label: "Backlog" },
     { to: `/spaces/${spaceId}/changes`, label: "Impact Analysis" },
-    { to: `/analytics/${spaceId}`, label: "Analytics" },
-  ];
+    { to: `/spaces/${spaceId}/analytics`, label: "Analytics" },
+  ]
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Top Navigation Bar */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <button
-                onClick={() => navigate("/spaces")}
-                className="btn btn-ghost p-2"
-                title="Back to workspaces"
-              >
+              <button onClick={() => navigate("/spaces")} className="btn btn-ghost p-2" title="Back to workspaces">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
               </button>
 
@@ -58,12 +50,8 @@ export default function SpaceDashboard() {
                 </div>
 
                 <div>
-                  <h1 className="text-xl font-bold text-slate-900">
-                    {space?.name || "Workspace"}
-                  </h1>
-                  <p className="text-xs text-slate-500">
-                    Agile Project Management
-                  </p>
+                  <h1 className="text-xl font-bold text-slate-900">{space?.name || "Workspace"}</h1>
+                  <p className="text-xs text-slate-500">Agile Project Management</p>
                 </div>
               </div>
             </div>
@@ -100,7 +88,7 @@ export default function SpaceDashboard() {
           </div>
 
           {/* Navigation Tabs */}
-          <div className="flex gap-1 mt-4 border-b border-slate-200">
+          <div className="flex gap-1 mt-4 border-b border-gray-200">
             {tabs.map((t) => (
               <NavLink
                 key={t.label}
@@ -108,8 +96,8 @@ export default function SpaceDashboard() {
                 className={({ isActive }) =>
                   `px-4 py-2 font-medium text-sm rounded-t-lg transition-colors ${
                     isActive
-                      ? "bg-slate-100 text-blue-600 border-b-2 border-blue-600"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                      ? "bg-gray-100 text-blue-600 border-b-2 border-blue-600"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-gray-50"
                   }`
                 }
               >
@@ -123,20 +111,18 @@ export default function SpaceDashboard() {
       {/* Main Content Area */}
       <div className="flex">
         {/* Sidebar */}
-        <aside className="w-80 bg-white border-r border-slate-200 h-[calc(100vh-140px)] overflow-auto">
-          <div className="p-4">
+        <aside className="w-80 bg-white border-r border-gray-200 h-[calc(100vh-140px)] overflow-auto">
+          <div className="p-4 space-y-6">
             <SprintSidebar />
-            <div className="mt-6">
-              <VelocityPanel />
-            </div>
+            <VelocityPanel />
           </div>
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-6 overflow-auto h-[calc(100vh-140px)]">
+        <main className="flex-1 p-6 overflow-auto h-[calc(100vh-140px)] bg-gray-50">
           <Outlet />
         </main>
       </div>
     </div>
-  );
+  )
 }
