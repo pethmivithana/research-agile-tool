@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict
 from typing import Dict, List, Any, Optional
 import warnings
 import zipfile
+import traceback
 from recommendation_engine import get_recommendations  # Import the helper
 from sprint_context import SprintContextEngine  # Explicit import for sprint context
 from rules_engine import RulesEngine  # Explicit import for rules engine
@@ -96,9 +97,14 @@ class AnalysisResponse(BaseModel):
 # --- 4. MODEL LOADING ---
 @app.on_event("startup")
 def load_models():
-    print("\n🔍 INITIALIZING AGILE ML SERVICE...")
+    print("\n" + "="*60)
+    print("🔍 INITIALIZING AGILE ML SERVICE...")
+    print("="*60)
+    
+    model_status = {}
 
     # A. EFFORT
+    print("\n[1/4] Loading Effort Model...")
     try:
         eff_path = os.path.join(MODELS_DIR, "effort_artifacts.pkl")
         if os.path.exists(eff_path):
@@ -106,10 +112,18 @@ def load_models():
             m_med = xgb.XGBRegressor()
             m_med.load_model(os.path.join(MODELS_DIR, "effort_model_median.json"))
             loaded_assets["effort"] = {"tfidf": eff_art["tfidf"], "le_type": eff_art["le_type"], "median": m_med}
-            print("✅ Effort Models Loaded")
-    except Exception as e: print(f"❌ Effort Load Error: {e}")
+            print("   ✅ Effort Model: LOADED (XGBoost + TF-IDF)")
+            model_status["effort"] = "✅ LOADED"
+        else:
+            print(f"   ❌ Effort Model: FILE NOT FOUND at {eff_path}")
+            model_status["effort"] = "❌ FILE NOT FOUND"
+    except Exception as e:
+        print(f"   ❌ Effort Model: LOAD ERROR - {e}")
+        print(f"   📋 Traceback:\n{traceback.format_exc()}")
+        model_status["effort"] = f"❌ ERROR: {str(e)[:50]}"
 
     # B. PRODUCTIVITY
+    print("\n[2/4] Loading Productivity Model...")
     try:
         prod_path = os.path.join(MODELS_DIR, "productivity_artifacts.pkl")
         if os.path.exists(prod_path):
@@ -126,10 +140,18 @@ def load_models():
                 "le_prio": prod_art["le_prio"],
                 "xgb": xgb_prod, "nn": nn_prod
             }
-            print("✅ Productivity Models Loaded")
-    except Exception as e: print(f"❌ Productivity Load Error: {e}")
+            print("   ✅ Productivity Model: LOADED (Hybrid XGBoost + Neural Network)")
+            model_status["productivity"] = "✅ LOADED"
+        else:
+            print(f"   ❌ Productivity Model: FILE NOT FOUND at {prod_path}")
+            model_status["productivity"] = "❌ FILE NOT FOUND"
+    except Exception as e:
+        print(f"   ❌ Productivity Model: LOAD ERROR - {e}")
+        print(f"   📋 Traceback:\n{traceback.format_exc()}")
+        model_status["productivity"] = f"❌ ERROR: {str(e)[:50]}"
 
     # C. SCHEDULE
+    print("\n[3/4] Loading Schedule Risk Model...")
     try:
         sch_model_path = os.path.join(MODELS_DIR, "schedule_risk_model.pkl")
         sch_art_path = os.path.join(MODELS_DIR, "risk_artifacts.pkl")
@@ -142,12 +164,21 @@ def load_models():
                 "le_type": sch_artifacts.get("le_type"),
                 "le_prio": sch_artifacts.get("le_prio")
             }
-            print("✅ Schedule Risk Model Loaded")
+            print("   ✅ Schedule Risk Model: LOADED")
+            model_status["schedule"] = "✅ LOADED"
         else:
-            print(f"❌ Schedule Model missing")
-    except Exception as e: print(f"❌ Schedule Load Error: {e}")
+            missing = []
+            if not os.path.exists(sch_model_path): missing.append(f"model: {sch_model_path}")
+            if not os.path.exists(sch_art_path): missing.append(f"artifacts: {sch_art_path}")
+            print(f"   ❌ Schedule Model: FILES NOT FOUND - {', '.join(missing)}")
+            model_status["schedule"] = "❌ FILES NOT FOUND"
+    except Exception as e:
+        print(f"   ❌ Schedule Model: LOAD ERROR - {e}")
+        print(f"   📋 Traceback:\n{traceback.format_exc()}")
+        model_status["schedule"] = f"❌ ERROR: {str(e)[:50]}"
 
-    # D. QUALITY (DEBUGGING ADDED)
+    # D. QUALITY
+    print("\n[4/4] Loading Quality Risk Model...")
     if TABNET_AVAILABLE:
         try:
             q_zip_path = os.path.join(MODELS_DIR, "tabnet_quality_model.zip")
@@ -159,11 +190,35 @@ def load_models():
                 le_p = joblib.load(le_path) if os.path.exists(le_path) else None
                 
                 loaded_assets["quality"] = {"model": q_model, "le_prio": le_p}
-                print("✅ Quality Risk Model Loaded")
+                print("   ✅ Quality Risk Model: LOADED (TabNet)")
+                model_status["quality"] = "✅ LOADED"
             else:
-                print(f"❌ Quality Model ZIP NOT FOUND at: {q_zip_path}")
-        except Exception as e: 
-            print(f"❌ Quality Load Error: {e}")
+                print(f"   ❌ Quality Model: FILE NOT FOUND at {q_zip_path}")
+                model_status["quality"] = "❌ FILE NOT FOUND"
+        except Exception as e:
+            print(f"   ❌ Quality Model: LOAD ERROR - {e}")
+            print(f"   📋 Traceback:\n{traceback.format_exc()}")
+            model_status["quality"] = f"❌ ERROR: {str(e)[:50]}"
+    else:
+        print("   ❌ Quality Model: TabNet library not available")
+        model_status["quality"] = "❌ TABNET NOT INSTALLED"
+
+    # Summary
+    print("\n" + "="*60)
+    print("📊 MODEL LOADING SUMMARY")
+    print("="*60)
+    for model_name, status in model_status.items():
+        print(f"  {model_name.upper():15} : {status}")
+    
+    all_loaded = all("✅" in status for status in model_status.values())
+    if all_loaded:
+        print("\n✅ All 4 models loaded successfully!")
+    else:
+        failed = [name for name, status in model_status.items() if "❌" in status]
+        print(f"\n⚠️  Warning: {len(failed)} model(s) failed to load: {', '.join(failed)}")
+        print("   Some predictions may use fallback values.")
+    
+    print("="*60 + "\n")
 
 # --- 5. PREDICTION LOGIC ---
 
@@ -173,7 +228,9 @@ def safe_transform(encoder, value, default=0):
 
 def predict_effort(data: TicketData):
     assets = loaded_assets["effort"]
-    if not assets: return float(data.story_points * 8), 0.0
+    if not assets:
+        print("   ⚠️  Effort Model: Using fallback (model not loaded)")
+        return float(data.story_points * 8), 0.0
     try:
         txt = f"{data.title} {data.description}"
         txt_vec = assets["tfidf"].transform([txt]).toarray()
@@ -183,11 +240,16 @@ def predict_effort(data: TicketData):
         vec = np.hstack([meta, txt_vec])
         est = float(assets["median"].predict(vec)[0])
         return float(est * 8.0), 1.0
-    except: return float(data.story_points * 8), 0.0
+    except Exception as e:
+        print(f"   ❌ Effort Model: Prediction error - {e}")
+        print(f"   📋 Traceback:\n{traceback.format_exc()}")
+        return float(data.story_points * 8), 0.0
 
 def predict_productivity(data: TicketData):
     assets = loaded_assets["productivity"]
-    if not assets: return 0.0
+    if not assets:
+        print("   ⚠️  Productivity Model: Using fallback (model not loaded)")
+        return 0.0
     try:
         mass = data.story_points * (data.total_links + 1)
         blk = 1 if data.priority in ['Blocker', 'Critical'] else 0
@@ -201,11 +263,16 @@ def predict_productivity(data: TicketData):
         with torch.no_grad():
             nn_out = assets["nn"](torch.FloatTensor(scaled)).item()
         return float(np.expm1(0.7*xgb_out + 0.3*nn_out))
-    except: return 0.0
+    except Exception as e:
+        print(f"   ❌ Productivity Model: Prediction error - {e}")
+        print(f"   📋 Traceback:\n{traceback.format_exc()}")
+        return 0.0
 
 def predict_schedule(data: TicketData):
     assets = loaded_assets["schedule"]
-    if not assets: return "Medium Risk", 0.5
+    if not assets:
+        print("   ⚠️  Schedule Model: Using fallback (model not loaded)")
+        return "Medium Risk", 0.5
     try:
         ld = data.total_links / (data.story_points + 1)
         cd = data.total_comments / (data.story_points + 1)
@@ -219,99 +286,98 @@ def predict_schedule(data: TicketData):
         idx = np.argmax(probs)
         labels = ["Critical Risk", "High Risk", "Low Risk", "Medium Risk"] 
         return labels[idx] if idx < len(labels) else "Medium Risk", float(probs[idx])
-    except: return "Medium Risk", 0.5
+    except Exception as e:
+        print(f"   ❌ Schedule Model: Prediction error - {e}")
+        print(f"   📋 Traceback:\n{traceback.format_exc()}")
+        return "Medium Risk", 0.5
 
 def predict_quality(data: TicketData):
     """
-    Quality Prediction with DEBUGGING
+    Quality Prediction
     """
     assets = loaded_assets["quality"]
     
-    # 🚨 CHECK 1: Is model loaded?
-    if not assets: 
-        print("🔴 Quality Model is NOT LOADED (returned default)")
+    if not assets:
+        print("   ⚠️  Quality Model: Using fallback (model not loaded)")
         return "Low", 0.0
     
     try:
-        # 1. Feature Prep
-        # Priority Encoding
+        # Feature Prep
         if assets["le_prio"]:
             p_c = safe_transform(assets["le_prio"], data.priority, default=2)
         else:
             prio_map = {'Highest': 0, 'High': 1, 'Medium': 2, 'Low': 3, 'Lowest': 4}
             p_c = prio_map.get(data.priority, 2)
 
-        # Complexity Interaction
         comp = data.story_points * (data.total_links + 1)
-        
-        # 🚨 DEBUG: Print what the model actually sees
-        print(f"   [Quality Debug] Inputs: SP={data.story_points}, Links={data.total_links}, Workload={data.author_workload_14d}, PrioCode={p_c}")
 
         # Construct Vector (6 Features)
         vec = np.array([[
-            float(data.story_points),   # 1
-            float(data.total_links),    # 2
-            float(data.total_comments), # 3
-            float(data.author_workload_14d), # 4
-            float(comp),                # 5
-            float(p_c)                  # 6
+            float(data.story_points),
+            float(data.total_links),
+            float(data.total_comments),
+            float(data.author_workload_14d),
+            float(comp),
+            float(p_c)
         ]])
         
-        # 2. Predict
+        # Predict
         probs = assets["model"].predict_proba(vec)[0]
-        prob_defect = float(probs[1]) 
-        
-        # 🚨 DEBUG: Print the raw confidence
-        print(f"   [Quality Debug] Raw Probability of Defect: {prob_defect:.4f}")
-
-        # Threshold
+        prob_defect = float(probs[1])
         lbl = "High" if prob_defect > 0.5 else "Low"
         return lbl, prob_defect
         
     except Exception as e:
-        print(f"🔴 Quality Error during prediction: {e}")
+        print(f"   ❌ Quality Model: Prediction error - {e}")
+        print(f"   📋 Traceback:\n{traceback.format_exc()}")
         return "Low", 0.0
 
 @app.post("/analyze/mid-sprint-impact", response_model=AnalysisResponse)
 def analyze_impact(data: TicketData):
     print(f"\n📨 Analyzing: {data.title}")
+    print(f"   Type: {data.issue_type} | Priority: {data.priority} | SP: {data.story_points}")
     
-    eff_h, _ = predict_effort(data)
-    prod_d = predict_productivity(data)
-    sch_lbl, sch_prob = predict_schedule(data)
-    qual_lbl, qual_prob = predict_quality(data)
-    
-    analysis_results = {
-        "predicted_hours": eff_h,
-        "schedule_risk_probability": sch_prob,
-        "productivity_impact": prod_d,
-        "quality_risk_probability": qual_prob
-    }
-    
-    # Convert TicketData to dict for recommendation engine
-    item_data = {
-        "title": data.title,
-        "description": data.description,
-        "story_points": data.story_points,
-        "priority": data.priority,
-        "issue_type": data.issue_type
-    }
-    
-    # Note: Recommendations are generated but not returned in this endpoint
-    # Use the /recommendations/generate endpoint for full recommendation details
-    recs = get_recommendations(analysis_results, item_data)
-    
-    print(f"   Results -> Effort: {eff_h:.1f}h | Sched: {sch_lbl} | Prod: {prod_d:.1f}d | Qual: {qual_lbl} ({qual_prob:.0%})")
-    
-    return AnalysisResponse(
-        predicted_hours=round(eff_h, 1),
-        schedule_risk_probability=round(sch_prob, 2),
-        schedule_risk_label=sch_lbl,
-        productivity_impact=round(prod_d, 1),
-        quality_risk_probability=round(qual_prob, 2),
-        quality_risk_label=qual_lbl,
-        model_evidence={"schedule": loaded_assets["schedule"] is not None}
-    )
+    try:
+        eff_h, _ = predict_effort(data)
+        prod_d = predict_productivity(data)
+        sch_lbl, sch_prob = predict_schedule(data)
+        qual_lbl, qual_prob = predict_quality(data)
+        
+        analysis_results = {
+            "predicted_hours": eff_h,
+            "schedule_risk_probability": sch_prob,
+            "productivity_impact": prod_d,
+            "quality_risk_probability": qual_prob
+        }
+        
+        # Convert TicketData to dict for recommendation engine
+        item_data = {
+            "title": data.title,
+            "description": data.description,
+            "story_points": data.story_points,
+            "priority": data.priority,
+            "issue_type": data.issue_type
+        }
+        
+        # Note: Recommendations are generated but not returned in this endpoint
+        # Use the /recommendations/generate endpoint for full recommendation details
+        recs = get_recommendations(analysis_results, item_data)
+        
+        print(f"   ✅ Results -> Effort: {eff_h:.1f}h | Sched: {sch_lbl} ({sch_prob:.0%}) | Prod: {prod_d:.1f}d | Qual: {qual_lbl} ({qual_prob:.0%})")
+        
+        return AnalysisResponse(
+            predicted_hours=round(eff_h, 1),
+            schedule_risk_probability=round(sch_prob, 2),
+            schedule_risk_label=sch_lbl,
+            productivity_impact=round(prod_d, 1),
+            quality_risk_probability=round(qual_prob, 2),
+            quality_risk_label=qual_lbl,
+            model_evidence={"schedule": loaded_assets["schedule"] is not None}
+        )
+    except Exception as e:
+        print(f"   ❌ Analysis Error: {e}")
+        print(f"   📋 Traceback:\n{traceback.format_exc()}")
+        raise
 
 @app.post("/recommendations/generate")
 def generate_recommendations(request: RecommendationRequest):
@@ -348,6 +414,84 @@ def generate_recommendations(request: RecommendationRequest):
                 "level": "UNKNOWN",
                 "summary": "Recommendation engine encountered an error."
             }
+        }
+
+@app.post("/assess-sprint-interruption")
+def assess_sprint_interruption_endpoint(request: Dict[str, Any]):
+    """
+    Assess sprint interruption using 3-Engine Architecture.
+    
+    Request body:
+    {
+        "new_ticket": {
+            "id": str,
+            "title": str,
+            "story_points": float,
+            "priority": str,
+            "business_value": float (optional),
+            "urgency": float (optional),
+            "risk_penalty": float (optional),
+            "description": str (optional),
+            "ml_analysis": {"productivity_impact": float} (optional)
+        },
+        "active_sprint": {
+            "id": str,
+            "status": str,
+            "metrics": {"committedSP": float}
+        },
+        "sprint_items": [
+            {
+                "id": str,
+                "title": str,
+                "story_points": float,
+                "status": str,
+                "priority": str,
+                "business_value": float (optional),
+                "urgency": float (optional),
+                "risk_penalty": float (optional)
+            }
+        ]
+    }
+    """
+    try:
+        from three_engine_architecture import assess_sprint_interruption
+        
+        new_ticket = request.get("new_ticket", {})
+        active_sprint = request.get("active_sprint", {})
+        sprint_items = request.get("sprint_items", [])
+        
+        # Set defaults for business value if not provided
+        if "business_value" not in new_ticket:
+            priority_map = {"Highest": 90, "High": 70, "Medium": 50, "Low": 30, "Lowest": 10}
+            new_ticket["business_value"] = priority_map.get(new_ticket.get("priority", "Medium"), 50)
+            new_ticket["urgency"] = priority_map.get(new_ticket.get("priority", "Medium"), 50)
+            new_ticket["risk_penalty"] = 0.0
+        
+        # Set defaults for sprint items
+        for item in sprint_items:
+            if "business_value" not in item:
+                priority_map = {"Highest": 90, "High": 70, "Medium": 50, "Low": 30, "Lowest": 10}
+                item["business_value"] = priority_map.get(item.get("priority", "Medium"), 50)
+                item["urgency"] = priority_map.get(item.get("priority", "Medium"), 50)
+                item["risk_penalty"] = 0.0
+        
+        result = assess_sprint_interruption(new_ticket, active_sprint, sprint_items)
+        
+        print(f"   🔍 Sprint Interruption Assessment: {result['action']}")
+        print(f"   📊 Reasoning: {result['reasoning']}")
+        
+        return result
+        
+    except Exception as e:
+        print(f"❌ Sprint Interruption Assessment Error: {e}")
+        import traceback
+        print(traceback.format_exc())
+        return {
+            "action": "DEFER",
+            "target_to_remove": None,
+            "reasoning": f"Error during assessment: {str(e)}",
+            "constraints_checked": ["Error"],
+            "error": str(e)
         }
 
 @app.get("/health")
