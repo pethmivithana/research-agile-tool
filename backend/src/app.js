@@ -9,7 +9,6 @@ import sprintsRoutes from "./routes/sprints.routes.js"
 import backlogRoutes from "./routes/backlog.routes.js"
 import boardRoutes from "./routes/board.routes.js"
 import changesRoutes from "./routes/changes.routes.js"
-import analyticsRoutes from "./routes/analytics.routes.js"
 import impactRoutes from "./routes/impact.routes.js"
 import { errorHandler } from "./middleware/errorHandler.js"
 
@@ -25,7 +24,6 @@ app.use("/api", sprintsRoutes)
 app.use("/api", backlogRoutes)
 app.use("/api", boardRoutes)
 app.use("/api", changesRoutes)
-app.use("/api", analyticsRoutes)
 app.use("/api/impact", impactRoutes)
 
 // Error handler (must be last)

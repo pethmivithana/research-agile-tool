@@ -4,38 +4,67 @@ import WorkItem from "../models/WorkItem.js"
 
 export async function autoDatesFromDuration(duration, startDate = new Date()) {
   const start = new Date(startDate)
-  const weeks = { "1w": 1, "2w": 2, "3w": 3, "4w": 4 }[duration] || 0
-  if (!weeks) return { startDate: undefined, endDate: undefined }
+  const durationMap = {
+    "1w": 7,
+    "2w": 14,
+    "3w": 21,
+    "4w": 28,
+  }
+  const days = durationMap[duration] || 14
 
   const end = new Date(start)
-  end.setDate(end.getDate() + weeks * 7)
-  return { startDate: start, endDate: end }
+  end.setDate(end.getDate() + days)
+
+  return {
+    startDate: start,
+    endDate: end,
+    durationDays: days,
+  }
 }
 
 export async function completeSprint(sprintId) {
   const sprint = await Sprint.findById(sprintId)
+  
+  if (!sprint) {
+    throw new Error("Sprint not found")
+  }
+
+  if (sprint.status !== "active") {
+    throw new Error("Only active sprints can be completed")
+  }
+
   const items = await WorkItem.find({ sprint: sprintId })
 
+  // Calculate metrics
   const doneSP = items.filter((i) => i.status === "Done").reduce((s, i) => s + (i.storyPoints || 0), 0)
-  const committedSP = items.reduce((s, i) => s + (i.storyPoints || 0), 0)
+  const committedSP = sprint.metrics?.committedSP || items.reduce((s, i) => s + (i.storyPoints || 0), 0)
   const remaining = items.filter((i) => i.status !== "Done")
   const spilloverSP = committedSP - doneSP
 
+  // Find or create next sprint
   let next = await Sprint.findOne({ space: sprint.space, order: sprint.order + 1 })
   if (!next) {
+    const dates = await autoDatesFromDuration(sprint.duration)
     next = await Sprint.create({
       space: sprint.space,
       name: `Sprint ${sprint.order + 1}`,
       duration: sprint.duration,
       status: "planned",
       order: sprint.order + 1,
+      startDate: dates.startDate,
+      endDate: dates.endDate,
+      durationDays: dates.durationDays,
+      numberOfDevelopers: sprint.numberOfDevelopers,
+      hoursPerDayPerDeveloper: sprint.hoursPerDayPerDeveloper,
+      teamCapacityHours: sprint.teamCapacityHours,
     })
   }
 
+  // Move incomplete items to next sprint
   await Promise.all(
     remaining.map((i) => {
       i.sprint = next._id
-      // Keep statuses as they are for non-task types, but reset Tasks/Subtasks if needed
+      // Reset status for Task/Subtask types
       if (["Task", "Subtask"].includes(i.type)) {
         i.status = "To Do"
       }
@@ -43,8 +72,33 @@ export async function completeSprint(sprintId) {
     }),
   )
 
+  // Update completed sprint metrics
   sprint.status = "completed"
-  sprint.metrics = { committedSP, completedSP: doneSP, spilloverSP, velocity: doneSP }
+  sprint.metrics = {
+    ...sprint.metrics,
+    committedSP,
+    completedSP: doneSP,
+    spilloverSP,
+    velocity: doneSP,
+  }
   await sprint.save()
-  return { sprint, next }
+
+  // Update next sprint metrics with previous velocity
+  next.metrics = {
+    ...next.metrics,
+    prevSprintVelocity: doneSP,
+  }
+  await next.save()
+
+  return {
+    completedSprint: sprint,
+    nextSprint: next,
+    movedItems: remaining.length,
+    metrics: {
+      committed: committedSP,
+      completed: doneSP,
+      spillover: spilloverSP,
+      velocity: doneSP,
+    },
+  }
 }

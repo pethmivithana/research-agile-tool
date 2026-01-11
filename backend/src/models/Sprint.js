@@ -9,10 +9,10 @@ const schema = new mongoose.Schema(
     duration: { type: String, enum: ["1w", "2w", "3w", "4w", "custom"], required: true },
     startDate: Date,
     endDate: Date,
-    durationDays: { type: Number, default: 14 }, // Calculated duration in days
-    teamCapacityHours: { type: Number, default: 120 }, // Team's available hours per sprint
-    hoursPerDayPerDeveloper: { type: Number, default: 6 }, // Dev hours per day
-    numberOfDevelopers: { type: Number, default: 5 }, // Team size
+    durationDays: { type: Number, default: 14 },
+    teamCapacityHours: { type: Number, default: 120 },
+    hoursPerDayPerDeveloper: { type: Number, default: 6 },
+    numberOfDevelopers: { type: Number, default: 5 },
     status: { type: String, enum: ["planned", "active", "completed"], default: "planned" },
     order: { type: Number, default: 1 },
     metrics: {
@@ -26,5 +26,8 @@ const schema = new mongoose.Schema(
   },
   { timestamps: true },
 )
+
+// Add index to ensure only one active sprint per space
+schema.index({ space: 1, status: 1 })
 
 export default mongoose.model("Sprint", schema)

@@ -3,11 +3,7 @@
 import { useEffect, useState } from "react"
 import { Droppable } from "react-beautiful-dnd"
 
-<<<<<<< HEAD
 export const StrictModeDroppable = ({ children, droppableId, ...props }) => {
-=======
-export const StrictModeDroppable = ({ children, ...props }) => {
->>>>>>> 331fde8aafb86603570aed680dd22ebe4747557a
   const [enabled, setEnabled] = useState(false)
 
   useEffect(() => {
@@ -22,7 +18,6 @@ export const StrictModeDroppable = ({ children, ...props }) => {
     return null
   }
 
-<<<<<<< HEAD
   return (
     <Droppable droppableId={droppableId} {...props}>
       {children}
@@ -31,7 +26,3 @@ export const StrictModeDroppable = ({ children, ...props }) => {
 }
 
 StrictModeDroppable.displayName = "StrictModeDroppable"
-=======
-  return <Droppable {...props}>{children}</Droppable>
-}
->>>>>>> 331fde8aafb86603570aed680dd22ebe4747557a

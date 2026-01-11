@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Any
 
 class SprintContextEngine:
@@ -9,7 +9,7 @@ class SprintContextEngine:
     
     def __init__(self, sprint_data: Dict):
         self.sprint_data = sprint_data
-        self.today = datetime.now()
+        self.today = datetime.now(timezone.utc)
         
     def calculate_metrics(self) -> Dict[str, Any]:
         """
