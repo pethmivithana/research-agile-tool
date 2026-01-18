@@ -1,16 +1,16 @@
 // backend/src/app.js
-import express from "express"
 import cors from "cors"
+import express from "express"
 import morgan from "morgan"
 import { config } from "./config/env.js"
+import { errorHandler } from "./middleware/errorHandler.js"
 import authRoutes from "./routes/auth.routes.js"
-import spacesRoutes from "./routes/spaces.routes.js"
-import sprintsRoutes from "./routes/sprints.routes.js"
 import backlogRoutes from "./routes/backlog.routes.js"
 import boardRoutes from "./routes/board.routes.js"
 import changesRoutes from "./routes/changes.routes.js"
 import impactRoutes from "./routes/impact.routes.js"
-import { errorHandler } from "./middleware/errorHandler.js"
+import spacesRoutes from "./routes/spaces.routes.js"
+import sprintsRoutes from "./routes/sprints.routes.js"
 
 const app = express()
 app.use(cors({ origin: config.CORS_ORIGIN, credentials: true }))

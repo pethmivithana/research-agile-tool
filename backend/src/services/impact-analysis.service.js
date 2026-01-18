@@ -1,272 +1,118 @@
 /**
- * Impact Analysis Service - Implements 4-Model Impact Assessment
- * Models: Effort, Quality Risk, Schedule Risk, Productivity
+ * Impact Analysis Service - ML Service Integration (Final Version)
+ * 
+ * Pure ML service integration - no local heuristics
+ * File: backend/src/services/impact-analysis.service.js
  */
 
-// ===== EFFORT MODEL =====
-// Estimates effort required using story points and complexity heuristics
-export function analyzeEffort(workItem, sprint = null) {
-  const { storyPoints = 1, priority, type, description = "" } = workItem
+import axios from "axios"
+import { config } from "../config/env.js"
 
-  const baseEffort = storyPoints * 8 // hours (standard: 1 SP = 8 hours)
-  let multiplier = 1.0
+const mlServiceClient = axios.create({
+  baseURL: config.PYTHON_SERVICE_URL,
+  timeout: 30000,
+  headers: {
+    "Content-Type": "application/json",
+  },
+})
 
-  // Priority factor
-  const priorityMultiplier = {
-    Highest: 1.2,
-    High: 1.1,
-    Medium: 1.0,
-    Low: 0.9,
-    Lowest: 0.8,
+// Request interceptor
+mlServiceClient.interceptors.request.use(
+  (config) => {
+    console.log(`🔵 [ML Service] ${config.method.toUpperCase()} ${config.url}`)
+    return config
+  },
+  (error) => {
+    console.error("❌ [ML Service] Request Error:", error.message)
+    return Promise.reject(error)
   }
-  multiplier *= priorityMultiplier[priority] || 1.0
+)
 
-  // Type complexity factor
-  const typeMultiplier = {
-    Bug: 0.8,
-    Task: 0.9,
-    Story: 1.2,
-    Subtask: 0.6,
+// Response interceptor
+mlServiceClient.interceptors.response.use(
+  (response) => {
+    console.log(`✅ [ML Service] Response received (${response.status})`)
+    return response
+  },
+  (error) => {
+    if (error.code === "ECONNREFUSED") {
+      console.error("❌ [ML Service] Connection refused - Is ML service running on", config.PYTHON_SERVICE_URL, "?")
+    } else if (error.code === "ETIMEDOUT") {
+      console.error("❌ [ML Service] Request timeout")
+    } else if (error.response) {
+      console.error(`❌ [ML Service] Error ${error.response.status}:`, error.response.data)
+    } else {
+      console.error("❌ [ML Service] Error:", error.message)
+    }
+    return Promise.reject(error)
   }
-  multiplier *= typeMultiplier[type] || 1.0
+)
 
-  // Description complexity (heuristic)
-  const wordCount = (description || "").split(/\s+/).length
-  if (wordCount > 100) multiplier *= 1.15
-  if (/integration|migration|refactor|architecture/i.test(description)) multiplier *= 1.3
-  if (/api|database|auth|payment/i.test(description)) multiplier *= 1.25
-
-  const estimatedHours = baseEffort * multiplier
-  const confidence = Math.min(95, 75 + (storyPoints > 0 ? 15 : 0)) // Higher confidence for estimated items
-
-  return {
-    estimatedHours: Math.round(estimatedHours),
-    baseEffort,
-    multiplier: Number.parseFloat(multiplier.toFixed(2)),
-    confidence,
-  }
-}
-
-// ===== QUALITY RISK MODEL =====
-// Assesses risk of quality issues post-implementation
-export function analyzeQualityRisk(workItem, sprint = null) {
-  const { storyPoints = 1, priority, type, description = "", mlFeatures = {} } = workItem
-  const { totalLinks = 0, totalComments = 0 } = mlFeatures
-
-  let riskScore = 0
-  const factors = []
-
-  // High complexity tasks have more quality risk
-  if (storyPoints >= 8) {
-    riskScore += 25
-    factors.push("High story point estimate (>=8)")
-  }
-
-  // Task type has lower quality risk
-  if (type === "Task") {
-    riskScore -= 10
-  } else if (type === "Story") {
-    riskScore += 15
-    factors.push("Story type generally higher risk")
-  }
-
-  // Dependencies and discussions indicate complexity
-  if (totalLinks > 3) {
-    riskScore += 15
-    factors.push("Multiple dependencies detected")
-  }
-  if (totalComments > 5) {
-    riskScore += 10
-    factors.push("High discussion activity")
-  }
-
-  // Keywords in description indicating risky areas
-  if (/security|encryption|auth|payment|integration|api/i.test(description)) {
-    riskScore += 25
-    factors.push("Security/payment/integration keywords")
-  }
-  if (/refactor|migration|rewrite/i.test(description)) {
-    riskScore += 20
-    factors.push("Refactoring/migration detected")
-  }
-
-  // Priority factor
-  if (priority === "Highest") riskScore += 5
-  if (priority === "Lowest") riskScore -= 5
-
-  riskScore = Math.max(0, Math.min(100, riskScore))
-
-  let label = "Low"
-  if (riskScore >= 70) label = "High"
-  else if (riskScore >= 40) label = "Medium"
-
-  return {
-    probability: Number.parseFloat((riskScore / 100).toFixed(2)),
-    label,
-    score: riskScore,
-    factors,
-  }
-}
-
-// ===== SCHEDULE RISK MODEL =====
-// Assesses risk of missing sprint deadlines
-export function analyzeScheduleRisk(workItem, sprint = null) {
-  const { storyPoints = 1, priority, type, description = "" } = workItem
-  let riskScore = 0
-  const factors = []
-
-  if (!sprint) {
-    return { probability: 0.2, label: "Low Risk", score: 20, factors: ["No sprint context"] }
+function calculateDaysRemaining(sprint) {
+  if (!sprint || !sprint.endDate) {
+    console.log("⚠️  No sprint end date, using default 10 days")
+    return 10.0
   }
 
   const now = new Date()
-  const sprintEnd = new Date(sprint.endDate)
-  const daysRemaining = Math.max(1, Math.ceil((sprintEnd - now) / (1000 * 60 * 60 * 24)))
+  const end = new Date(sprint.endDate)
+  const days = Math.ceil((end - now) / (1000 * 60 * 60 * 24))
+  const daysRemaining = Math.max(0.5, days)
 
-  // Check sprint capacity
-  const { numberOfDevelopers = 5, hoursPerDayPerDeveloper = 6 } = sprint
-  const teamCapacityHours = numberOfDevelopers * hoursPerDayPerDeveloper * daysRemaining
-  const { estimatedHours } = analyzeEffort(workItem)
-
-  // Load factor
-  const loadPercentage = (estimatedHours / teamCapacityHours) * 100
-  if (loadPercentage > 100) {
-    riskScore += 40
-    factors.push(`Effort exceeds capacity (${loadPercentage.toFixed(0)}%)`)
-  } else if (loadPercentage > 75) {
-    riskScore += 25
-    factors.push(`High capacity utilization (${loadPercentage.toFixed(0)}%)`)
-  } else if (loadPercentage > 50) {
-    riskScore += 10
-  }
-
-  // Days remaining factor
-  if (daysRemaining < 3) {
-    riskScore += 30
-    factors.push("Sprint ending soon")
-  } else if (daysRemaining < 7) {
-    riskScore += 15
-  }
-
-  // Priority elevates risk
-  if (priority === "Highest") riskScore += 15
-  if (priority === "Lowest") riskScore -= 10
-
-  // Complexity in description
-  if (/integration|migration|refactor/i.test(description)) {
-    riskScore += 20
-    factors.push("Complex task type")
-  }
-
-  riskScore = Math.max(0, Math.min(100, riskScore))
-
-  let label = "No Risk"
-  if (riskScore >= 70) label = "Critical Risk"
-  else if (riskScore >= 50) label = "High Risk"
-  else if (riskScore >= 30) label = "Medium Risk"
-  else if (riskScore >= 15) label = "Low Risk"
-
-  return {
-    probability: Number.parseFloat((riskScore / 100).toFixed(2)),
-    label,
-    score: riskScore,
-    factors,
-    daysRemaining,
-  }
+  console.log(`📅 Days remaining in sprint: ${daysRemaining}`)
+  return daysRemaining
 }
 
-// ===== PRODUCTIVITY MODEL =====
-// Measures productivity impact from context switching and interruptions
-export function analyzeProductivityImpact(newWorkItem, sprint = null) {
-  const { storyPoints = 1 } = newWorkItem
-  let productivityLossDays = 0
-  const factors = []
-
-  if (!sprint) {
-    return { impactDays: 0, factors: [], severity: "None" }
+function calculateDaysSinceStart(sprint) {
+  if (!sprint || !sprint.startDate) {
+    return 0
   }
 
-  // Get current sprint work items
-  const totalItems = sprint.backlog_items?.length || 0
-  const inProgressItems = sprint.backlog_items?.filter((i) => i.status === "In Progress").length || 0
+  const now = new Date()
+  const start = new Date(sprint.startDate)
+  const days = Math.floor((now - start) / (1000 * 60 * 60 * 24))
 
-  // Context switching cost: each item in progress creates cognitive load
-  const contextSwitchCost = inProgressItems * 0.5 // Each context = 0.5 days lost
-  if (inProgressItems > 2) {
-    productivityLossDays += contextSwitchCost
-    factors.push(`${inProgressItems} items in progress - context switching cost`)
-  }
-
-  // Interruption factor: new requirement in active sprint
-  if (sprint.status === "active") {
-    productivityLossDays += 1.0 // Base interruption cost
-    factors.push("Sprint already active - interruption penalty")
-  }
-
-  // Size factor: large items disrupt more
-  if (storyPoints >= 13) {
-    productivityLossDays += 2.0
-    factors.push("Large story points - significant disruption")
-  } else if (storyPoints >= 8) {
-    productivityLossDays += 1.2
-    factors.push("Medium-large story points")
-  } else if (storyPoints <= 2) {
-    productivityLossDays -= 0.5 // Small items have less disruption
-  }
-
-  // Recovery time to regain full focus
-  productivityLossDays += 0.5
-  factors.push("Recovery time to regain focus")
-
-  let severity = "None"
-  if (productivityLossDays >= 3) severity = "Critical"
-  else if (productivityLossDays >= 2) severity = "High"
-  else if (productivityLossDays >= 1) severity = "Medium"
-  else if (productivityLossDays > 0) severity = "Low"
-
-  return {
-    impactDays: Number.parseFloat(productivityLossDays.toFixed(1)),
-    percentageImpact: Number.parseFloat((productivityLossDays * 20).toFixed(0)), // Each day ≈ 20%
-    factors,
-    severity,
-  }
+  return Math.max(0, days)
 }
 
-// ===== INTEGRATED IMPACT ANALYSIS =====
-export async function performImpactAnalysis(workItem, sprint = null) {
-  const effort = analyzeEffort(workItem, sprint)
-  const qualityRisk = analyzeQualityRisk(workItem, sprint)
-  const scheduleRisk = analyzeScheduleRisk(workItem, sprint)
-  const productivity = analyzeProductivityImpact(workItem, sprint)
+function prepareTicketData(workItem, sprint = null) {
+  console.log("\n" + "=".repeat(70))
+  console.log("📦 Preparing Ticket Data for ML Service")
+  console.log("=".repeat(70))
 
-  return {
-    workItem: {
-      id: workItem._id,
-      title: workItem.title,
-      storyPoints: workItem.storyPoints,
-    },
-    effort,
-    qualityRisk,
-    scheduleRisk,
-    productivity,
-    overallRiskLevel: calculateOverallRisk(qualityRisk, scheduleRisk, productivity),
-    analysisTimestamp: new Date(),
+  const ticketData = {
+    title: String(workItem.title || "Untitled"),
+    description: String(workItem.description || ""),
+    story_points: Number(workItem.storyPoints) || 1.0,
+    priority: String(workItem.priority || "Medium"),
+    issue_type: String(workItem.type || "Story"),
+    total_links: Number(workItem.mlFeatures?.totalLinks || 0),
+    total_comments: Number(workItem.mlFeatures?.totalComments || 0),
+    days_since_sprint_start: sprint ? calculateDaysSinceStart(sprint) : 0,
+    days_remaining: sprint ? calculateDaysRemaining(sprint) : 10.0,
+    sprint_load_7d: Number(workItem.mlFeatures?.sprintLoad7d || 5),
+    team_velocity_14d: Number(workItem.mlFeatures?.teamVelocity14d || sprint?.metrics?.velocity || 20.0),
+    velocity_roll_5: Number(workItem.mlFeatures?.velocityRoll5 || 3.5),
+    author_past_avg: Number(workItem.mlFeatures?.authorPastAvg || 4.0),
+    author_workload_14d: Number(workItem.mlFeatures?.authorWorkload14d || 3.0),
   }
+
+  console.log("Title:", ticketData.title)
+  console.log("Story Points:", ticketData.story_points)
+  console.log("Priority:", ticketData.priority)
+  console.log("Type:", ticketData.issue_type)
+  console.log("Days Remaining:", ticketData.days_remaining)
+  console.log("=".repeat(70) + "\n")
+
+  return ticketData
 }
 
-function calculateOverallRisk(qualityRisk, scheduleRisk, productivity) {
-  const weights = {
-    quality: 0.35,
-    schedule: 0.4,
-    productivity: 0.25,
-  }
+function calculateOverallRisk(mlResult) {
+  const scheduleScore = mlResult.schedule_risk_probability * 100
+  const qualityScore = mlResult.quality_risk_probability * 100
+  const productivityScore = Math.min(100, mlResult.productivity_impact * 25)
 
-  const qualityScore = qualityRisk.probability * 100
-  const scheduleScore = scheduleRisk.probability * 100
-  const productivityScore = Math.min(100, productivity.impactDays * 25) // Days → percentage
-
-  const overallScore =
-    qualityScore * weights.quality + scheduleScore * weights.schedule + productivityScore * weights.productivity
+  const overallScore = scheduleScore * 0.4 + qualityScore * 0.35 + productivityScore * 0.25
 
   let level = "Low"
   if (overallScore >= 70) level = "Critical"
@@ -276,5 +122,162 @@ function calculateOverallRisk(qualityRisk, scheduleRisk, productivity) {
   return {
     score: Number.parseFloat(overallScore.toFixed(1)),
     level,
+  }
+}
+
+export async function performImpactAnalysis(workItem, sprint = null) {
+  console.log("\n" + "=".repeat(70))
+  console.log("🤖 CALLING ML SERVICE FOR IMPACT ANALYSIS")
+  console.log("=".repeat(70))
+  console.log("Work Item:", workItem.title)
+  console.log("ML Service URL:", config.PYTHON_SERVICE_URL)
+
+  try {
+    const ticketData = prepareTicketData(workItem, sprint)
+
+    console.log("📤 Sending request to ML service...")
+    console.log("Endpoint: POST /analyze/mid-sprint-impact")
+
+    const startTime = Date.now()
+    const response = await mlServiceClient.post("/analyze/mid-sprint-impact", ticketData)
+    const duration = Date.now() - startTime
+
+    const mlResult = response.data
+
+    console.log("\n✅ ML SERVICE RESPONSE RECEIVED")
+    console.log("Duration:", duration, "ms")
+
+    console.log("\n📊 ML MODEL PREDICTIONS:")
+    console.log("  💪 Effort:", mlResult.predicted_hours, "hours")
+    console.log("  📅 Schedule Risk:", mlResult.schedule_risk_label, `(${(mlResult.schedule_risk_probability * 100).toFixed(0)}%)`)
+    console.log("  ⚡ Productivity Impact:", mlResult.productivity_impact, "days")
+    console.log("  🎯 Quality Risk:", mlResult.quality_risk_label, `(${(mlResult.quality_risk_probability * 100).toFixed(0)}%)`)
+    console.log("\n📈 Model Status:", JSON.stringify(mlResult.model_evidence, null, 2))
+
+    const analysis = {
+      workItem: {
+        id: workItem._id,
+        title: workItem.title,
+        storyPoints: workItem.storyPoints,
+      },
+      effort: {
+        estimatedHours: mlResult.predicted_hours,
+        confidence: mlResult.confidence_interval || "ML Model",
+        baseEffort: workItem.storyPoints * 8,
+        multiplier: mlResult.predicted_hours / (workItem.storyPoints * 8 || 1),
+      },
+      scheduleRisk: {
+        probability: mlResult.schedule_risk_probability,
+        label: mlResult.schedule_risk_label,
+        score: mlResult.schedule_risk_probability * 100,
+        factors: [
+          `ML Prediction: ${mlResult.schedule_risk_label}`,
+          `Confidence: ${(mlResult.schedule_risk_probability * 100).toFixed(0)}%`,
+        ],
+      },
+      productivity: {
+        impactDays: mlResult.productivity_impact,
+        percentageImpact: Math.round(mlResult.productivity_impact * 20),
+        severity:
+          mlResult.productivity_impact >= 3
+            ? "Critical"
+            : mlResult.productivity_impact >= 2
+              ? "High"
+              : mlResult.productivity_impact >= 1
+                ? "Medium"
+                : "Low",
+        factors: [`ML Prediction: ${mlResult.productivity_impact.toFixed(1)} days productivity loss`],
+      },
+      qualityRisk: {
+        probability: mlResult.quality_risk_probability,
+        label: mlResult.quality_risk_label,
+        score: mlResult.quality_risk_probability * 100,
+        factors: [
+          `ML Prediction: ${mlResult.quality_risk_label}`,
+          `Defect Probability: ${(mlResult.quality_risk_probability * 100).toFixed(0)}%`,
+        ],
+      },
+      overallRiskLevel: calculateOverallRisk(mlResult),
+      mlMetadata: {
+        modelEvidence: mlResult.model_evidence,
+        analysisTimestamp: new Date(),
+        mlServiceVersion: "2.0.1",
+        allModelsUsed: Object.values(mlResult.model_evidence).every((v) => v === true),
+      },
+    }
+
+    console.log("\n✅ Analysis transformation complete")
+    console.log("Overall Risk:", analysis.overallRiskLevel.level, `(${analysis.overallRiskLevel.score.toFixed(1)})`)
+    console.log("=".repeat(70) + "\n")
+
+    return analysis
+  } catch (error) {
+    console.error("\n❌ ML SERVICE ERROR")
+    console.error("=".repeat(70))
+    console.error("Error Type:", error.code || error.name)
+    console.error("Message:", error.message)
+
+    if (error.response) {
+      console.error("Status:", error.response.status)
+      console.error("Response Data:", JSON.stringify(error.response.data, null, 2))
+    }
+
+    console.error("=".repeat(70))
+
+    if (error.code === "ECONNREFUSED" || error.code === "ETIMEDOUT") {
+      console.error("\n🚨 CRITICAL ERROR: Cannot connect to ML service!")
+      console.error("Please ensure:")
+      console.error("  1. ML service is running: cd ml-service && python main.py")
+      console.error("  2. ML service is on port 8000")
+      console.error("  3. PYTHON_SERVICE_URL is set correctly in .env")
+      console.error(`  4. Current URL: ${config.PYTHON_SERVICE_URL}`)
+
+      throw new Error(
+        `ML service unavailable at ${config.PYTHON_SERVICE_URL}. Please start the ML service and try again.`
+      )
+    }
+
+    throw error
+  }
+}
+
+export async function checkMLServiceHealth() {
+  try {
+    console.log("🏥 Checking ML service health...")
+    const response = await mlServiceClient.get("/health", { timeout: 5000 })
+
+    console.log("✅ ML service is healthy")
+    console.log("Models loaded:", response.data.models_loaded)
+
+    return {
+      available: true,
+      modelsLoaded: response.data.models_loaded,
+      status: response.data.status,
+    }
+  } catch (error) {
+    console.error("❌ ML service health check failed:", error.message)
+    return {
+      available: false,
+      error: error.message,
+    }
+  }
+}
+
+export async function getMLServiceStatus() {
+  try {
+    const health = await checkMLServiceHealth()
+
+    return {
+      connected: health.available,
+      url: config.PYTHON_SERVICE_URL,
+      models: health.modelsLoaded || {},
+      status: health.status || "unknown",
+    }
+  } catch (error) {
+    return {
+      connected: false,
+      url: config.PYTHON_SERVICE_URL,
+      error: error.message,
+    }
   }
 }

@@ -1,9 +1,10 @@
 "use client"
 
-import { NavLink, Outlet, useParams, useNavigate } from "react-router-dom"
-import SprintSidebar from "../sprints/SprintSidebar.jsx"
 import { useQuery } from "@tanstack/react-query"
+import { NavLink, Outlet, useNavigate, useParams } from "react-router-dom"
 import { api } from "../../api/axiosClient.js"
+import VelocityPanel from "../analytics/VelocityPanel.jsx"
+import SprintSidebar from "../sprints/SprintSidebar.jsx"
 
 export default function SpaceDashboard() {
   const { spaceId } = useParams()
@@ -113,6 +114,7 @@ export default function SpaceDashboard() {
         <aside className="w-80 bg-white border-r border-gray-200 h-[calc(100vh-140px)] overflow-auto">
           <div className="p-4 space-y-6">
             <SprintSidebar />
+            <VelocityPanel />
           </div>
         </aside>
 
