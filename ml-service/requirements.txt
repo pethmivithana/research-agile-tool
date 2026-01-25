@@ -1,13 +1,14 @@
 # Core ML Libraries
-# Numpy 1.26+ is required for Python 3.12
 numpy>=1.26.4
 pandas>=2.2.0
 scikit-learn>=1.4.0
+scipy>=1.11.0
+
+# XGBoost
 xgboost>=2.0.3
 
-# PyTorch 2.2+ is required for Python 3.12
+# PyTorch
 torch>=2.2.0
-pytorch-tabnet==4.1.0
 
 # API Framework
 fastapi>=0.109.0
