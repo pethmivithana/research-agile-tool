@@ -3,11 +3,18 @@ FastAPI Application - Research Agile Tool Backend
 Converted from Node.js Express to Python FastAPI
 """
 
+import sys
+import os
+from pathlib import Path
+
+# Add the backend directory to Python path
+backend_dir = Path(__file__).parent
+sys.path.insert(0, str(backend_dir))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
-import os
 
 # Load environment variables
 load_dotenv()
