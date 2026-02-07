@@ -61,6 +61,6 @@ async def create_indexes():
     await db.db.change_events.create_index([("space", ASCENDING), ("date", DESCENDING)])
     await db.db.change_events.create_index([("workItem", ASCENDING)])
 
-def get_db() -> AsyncIOMotorDatabase:
-    """Get database instance"""
+async def get_db() -> AsyncIOMotorDatabase:
+    """Get database instance (compatible with FastAPI Depends)"""
     return db.db
