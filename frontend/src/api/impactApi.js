@@ -1,16 +1,113 @@
-import { api } from "./axiosClient.js"
+/**
+ * Impact Analysis API Service
+ * Handles ML-powered impact analysis API calls
+ */
 
-export const ImpactApi = {
-  // Analyze a backlog item (pre-sprint)
-  analyzeBacklogItem: (workItemId) => api.get(`/impact/backlog/${workItemId}/analyze`),
+import API_ENDPOINTS from './apiConfig';
 
-  // Analyze impact of adding item to sprint (during planning)
-  analyzeSprintLoad: (sprintId, workItemId) => api.get(`/impact/sprints/${sprintId}/items/${workItemId}/analyze`),
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  return {
+    'Content-Type': 'application/json',
+    ...(token && { 'Authorization': `Bearer ${token}` }),
+  };
+};
 
-  // Analyze impact of new requirement mid-sprint
-  analyzeMidSprintImpact: (sprintId, requirementData) =>
-    api.post(`/impact/sprints/${sprintId}/analyze-impact`, requirementData),
+const handleResponse = async (response) => {
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: 'Network error' }));
+    throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
+  }
+  return response.json();
+};
 
-  // Batch analyze multiple items
-  batchAnalyze: (sprintId, workItemIds) => api.post("/impact/sprints/batch-analyze", { sprintId, workItemIds }),
-}
+/**
+ * Check impact analysis service health
+ */
+export const checkHealth = async () => {
+  try {
+    const response = await fetch(API_ENDPOINTS.IMPACT.HEALTH, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+    return handleResponse(response);
+  } catch (error) {
+    console.error('Impact service health check failed:', error);
+    throw error;
+  }
+};
+
+/**
+ * Analyze backlog item (pre-sprint planning)
+ */
+export const analyzeBacklogItem = async (workItemId) => {
+  try {
+    console.log(`🔍 Analyzing backlog item: ${workItemId}`);
+    
+    const response = await fetch(API_ENDPOINTS.IMPACT.ANALYZE_BACKLOG(workItemId), {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+    
+    const data = await handleResponse(response);
+    console.log('✅ Backlog analysis complete:', data);
+    
+    return data;
+  } catch (error) {
+    console.error('Failed to analyze backlog item:', error);
+    throw error;
+  }
+};
+
+/**
+ * Analyze mid-sprint impact of adding new work item
+ */
+export const analyzeMidSprintImpact = async (sprintId, workItemId) => {
+  try {
+    console.log(`⚡ Analyzing mid-sprint impact for sprint: ${sprintId}, item: ${workItemId}`);
+    
+    const response = await fetch(API_ENDPOINTS.IMPACT.ANALYZE_MID_SPRINT(sprintId), {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ workItemId }),
+    });
+    
+    const data = await handleResponse(response);
+    console.log('✅ Mid-sprint analysis complete:', data);
+    
+    return data;
+  } catch (error) {
+    console.error('Failed to analyze mid-sprint impact:', error);
+    throw error;
+  }
+};
+
+/**
+ * Apply a recommendation from impact analysis
+ */
+export const applyRecommendation = async (sprintId, recommendation) => {
+  try {
+    console.log(`✨ Applying recommendation for sprint: ${sprintId}`, recommendation);
+    
+    const response = await fetch(API_ENDPOINTS.IMPACT.APPLY_RECOMMENDATION(sprintId), {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(recommendation),
+    });
+    
+    const data = await handleResponse(response);
+    console.log('✅ Recommendation applied:', data);
+    
+    return data;
+  } catch (error) {
+    console.error('Failed to apply recommendation:', error);
+    throw error;
+  }
+};
+
+export default {
+  checkHealth,
+  analyzeBacklogItem,
+  analyzeMidSprintImpact,
+  applyRecommendation,
+};

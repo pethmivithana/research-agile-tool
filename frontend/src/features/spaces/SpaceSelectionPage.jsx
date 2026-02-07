@@ -1,7 +1,10 @@
 "use client"
 import { useQuery } from "@tanstack/react-query"
-import { SpacesApi } from "../../api/spacesApi.js"
+import SpacesApi from '@/api/spacesApi';
+
 import { useNavigate } from "react-router-dom"
+
+SpacesApi.createSpace(data);
 
 export default function SpaceSelectionPage() {
   const navigate = useNavigate()

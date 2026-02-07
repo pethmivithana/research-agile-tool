@@ -4,9 +4,9 @@ Authentication Routes (Login/Register)
 """
 
 from fastapi import APIRouter, HTTPException, status, Body
+from datetime import datetime, timezone
 from app.services.database import get_db
 from app.services.auth import hash_password, verify_password, create_token
-# FIX: Import models from services.models, not app.models
 from app.services.models import UserRegister, UserLogin, TokenResponse, UserResponse
 
 router = APIRouter()
@@ -37,10 +37,17 @@ async def register(user: UserRegister = Body(...)):
     # Insert into DB
     result = await db.users.insert_one(new_user)
     
+    # Generate token
+    token = create_token(str(result.inserted_id), new_user["email"])
+    
     return {
-        "id": str(result.inserted_id),
-        "email": new_user["email"],
-        "name": new_user["name"]
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {
+            "id": str(result.inserted_id),
+            "email": new_user["email"],
+            "name": new_user["name"]
+        }
     }
 
 @router.post("/login", response_model=TokenResponse)
@@ -53,6 +60,13 @@ async def login(user_credentials: UserLogin = Body(...)):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials"
+        )
+    
+    # Check if password field exists
+    if "password" not in user:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="User account is corrupted. Please contact support."
         )
     
     # Verify password
@@ -71,6 +85,6 @@ async def login(user_credentials: UserLogin = Body(...)):
         "user": {
             "id": str(user["_id"]),
             "email": user["email"],
-            "name": user.get("name")
+            "name": user.get("name", "")
         }
     }

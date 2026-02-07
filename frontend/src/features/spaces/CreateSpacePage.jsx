@@ -1,8 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import { SpacesApi } from "../../api/spacesApi.js"
+import SpacesApi from '@/api/spacesApi';
+
 import { useNavigate } from "react-router-dom"
+
+SpacesApi.createSpace(data);
 
 export default function CreateSpacePage() {
   const [name, setName] = useState("")
