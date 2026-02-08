@@ -180,6 +180,81 @@ async def predict(features: WorkItemFeatures):
         logger.error(f"Prediction error: {e}")
         return fallback_prediction(features)
 
+@app.post("/analyze/mid-sprint-impact")
+async def analyze_mid_sprint_impact(data: dict):
+    """Analyze impact of new requirement in mid-sprint"""
+    try:
+        logger.info(f"Analyzing mid-sprint impact for: {data.get('title', 'Unknown')}")
+        
+        story_points = float(data.get('story_points', 1))
+        priority = data.get('priority', 'Medium')
+        days_remaining = float(data.get('days_remaining', 10))
+        sprint_load = float(data.get('sprint_load_7d', 0))
+        
+        # Calculate effort
+        estimated_hours = story_points * 6.5
+        
+        # Calculate schedule risk
+        schedule_risk = 0.3
+        if story_points > 8:
+            schedule_risk += 0.2
+        if priority in ['Critical', 'High']:
+            schedule_risk += 0.15
+        if days_remaining < 3:
+            schedule_risk += 0.25
+        if sprint_load > 70:
+            schedule_risk += 0.1
+        
+        schedule_risk = min(schedule_risk, 1.0)
+        
+        schedule_label = 'low'
+        if schedule_risk >= 0.7:
+            schedule_label = 'critical'
+        elif schedule_risk >= 0.5:
+            schedule_label = 'high'
+        elif schedule_risk >= 0.3:
+            schedule_label = 'medium'
+        
+        # Calculate productivity impact
+        productivity_impact = story_points * 0.3
+        
+        # Calculate quality risk
+        quality_risk = 0.2
+        if story_points > 13:
+            quality_risk += 0.3
+        if priority in ['Critical', 'High']:
+            quality_risk += 0.2
+        
+        quality_label = 'high' if quality_risk >= 0.5 else ('medium' if quality_risk >= 0.3 else 'low')
+        
+        return {
+            "predicted_hours": estimated_hours,
+            "confidence_interval": "0.85",
+            "schedule_risk_label": schedule_label,
+            "schedule_risk_probability": schedule_risk,
+            "productivity_impact": productivity_impact,
+            "quality_risk_label": quality_label,
+            "quality_risk_probability": quality_risk,
+            "model_evidence": {
+                "effort": False,
+                "schedule": False,
+                "productivity": False,
+                "quality": False
+            }
+        }
+    except Exception as e:
+        logger.error(f"Analysis error: {e}")
+        return {
+            "predicted_hours": 0,
+            "confidence_interval": "0.6",
+            "schedule_risk_label": "medium",
+            "schedule_risk_probability": 0.5,
+            "productivity_impact": 0,
+            "quality_risk_label": "medium",
+            "quality_risk_probability": 0.5,
+            "model_evidence": {}
+        }
+
 @app.get("/")
 async def root():
     return {

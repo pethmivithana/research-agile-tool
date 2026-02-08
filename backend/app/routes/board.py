@@ -20,7 +20,7 @@ ALLOWED_BY_TYPE = {
 
 DEFAULT_COLUMNS = ["To Do", "In Progress", "In Review", "Done"]
 
-@router.get("/board/{sprint_id}")
+@router.get("/sprints/{sprint_id}/board")
 async def get_board(sprint_id: str, current_user: dict = Depends(get_current_user), db = Depends(get_db)):
     """Get board for a sprint"""
     try:
@@ -41,10 +41,10 @@ async def get_board(sprint_id: str, current_user: dict = Depends(get_current_use
         }
         
         for item in items:
-            status = item.get("status", "To Do")
-            if status not in grouped:
-                status = "To Do"
-            grouped[status].append(WorkItemResponse(**item))
+            status_val = item.get("status", "To Do")
+            if status_val not in grouped:
+                status_val = "To Do"
+            grouped[status_val].append(WorkItemResponse(**item))
         
         return grouped
     except HTTPException:
@@ -55,10 +55,16 @@ async def get_board(sprint_id: str, current_user: dict = Depends(get_current_use
             detail=str(e)
         )
 
-@router.post("/board/move")
-async def move_item(body: dict, current_user: dict = Depends(get_current_user), db = Depends(get_db)):
+@router.post("/sprints/{sprint_id}/board/move")
+async def move_item(sprint_id: str, body: dict, current_user: dict = Depends(get_current_user), db = Depends(get_db)):
     """Move item on board"""
     try:
+        if not ObjectId.is_valid(sprint_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid sprint ID"
+            )
+        
         work_item_id = body.get("workItemId")
         to_col = body.get("toCol")
         

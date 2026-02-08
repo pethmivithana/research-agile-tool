@@ -3,11 +3,12 @@ FILE: app/routes/auth.py
 Authentication Routes (Login/Register)
 """
 
-from fastapi import APIRouter, HTTPException, status, Body
+from fastapi import APIRouter, HTTPException, status, Body, Depends
 from datetime import datetime, timezone
 from app.services.database import get_db
-from app.services.auth import hash_password, verify_password, create_token
+from app.services.auth import hash_password, verify_password, create_token, get_current_user
 from app.services.models import UserRegister, UserLogin, TokenResponse, UserResponse
+from bson import ObjectId
 
 router = APIRouter()
 
@@ -87,4 +88,36 @@ async def login(user_credentials: UserLogin = Body(...)):
             "email": user["email"],
             "name": user.get("name", "")
         }
+    }
+
+@router.get("/me", response_model=UserResponse)
+async def get_current_user_info(current_user: dict = Depends(get_current_user)):
+    """Get current user info"""
+    db = get_db()
+    
+    try:
+        user = await db.users.find_one({"_id": ObjectId(current_user["id"])})
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        return {
+            "id": str(user["_id"]),
+            "email": user["email"],
+            "name": user.get("name", "")
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@router.get("/health")
+async def health_check():
+    """Health check for auth service"""
+    return {
+        "status": "healthy",
+        "service": "auth"
     }

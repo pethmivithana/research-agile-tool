@@ -152,6 +152,40 @@ async def create_sprint(space_id: str, sprint_create: SprintCreate, current_user
             detail=str(e)
         )
 
+@router.delete("/sprints/{sprint_id}")
+async def delete_sprint(sprint_id: str, current_user: dict = Depends(get_current_user), db = Depends(get_db)):
+    """Delete a sprint"""
+    try:
+        if not ObjectId.is_valid(sprint_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid sprint ID"
+            )
+        
+        # Move items back to backlog
+        await db.work_items.update_many(
+            {"sprint": ObjectId(sprint_id)},
+            {"$unset": {"sprint": ""}, "$set": {"updatedAt": datetime.utcnow()}}
+        )
+        
+        # Delete sprint
+        result = await db.sprints.delete_one({"_id": ObjectId(sprint_id)})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Sprint not found"
+            )
+        
+        return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
 @router.put("/sprints/{sprint_id}", response_model=SprintResponse)
 async def update_sprint(sprint_id: str, sprint_update: SprintUpdate, current_user: dict = Depends(get_current_user), db = Depends(get_db)):
     """Update sprint"""
@@ -244,6 +278,26 @@ async def complete_sprint_handler(sprint_id: str, current_user: dict = Depends(g
         
         result = await complete_sprint(sprint_id, db)
         return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@router.get("/sprints/{sprint_id}/work-items", response_model=List[dict])
+async def get_sprint_work_items(sprint_id: str, current_user: dict = Depends(get_current_user), db = Depends(get_db)):
+    """Get work items in a sprint"""
+    try:
+        if not ObjectId.is_valid(sprint_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid sprint ID"
+            )
+        
+        items = await db.work_items.find({"sprint": ObjectId(sprint_id)}).sort("createdAt", -1).to_list(500)
+        return items
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

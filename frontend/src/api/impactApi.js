@@ -62,14 +62,14 @@ export const analyzeBacklogItem = async (workItemId) => {
 /**
  * Analyze mid-sprint impact of adding new work item
  */
-export const analyzeMidSprintImpact = async (sprintId, workItemId) => {
+export const analyzeMidSprintImpact = async (sprintId, itemData) => {
   try {
-    console.log(`⚡ Analyzing mid-sprint impact for sprint: ${sprintId}, item: ${workItemId}`);
+    console.log(`⚡ Analyzing mid-sprint impact for sprint: ${sprintId}`);
     
     const response = await fetch(API_ENDPOINTS.IMPACT.ANALYZE_MID_SPRINT(sprintId), {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ workItemId }),
+      body: JSON.stringify(itemData),
     });
     
     const data = await handleResponse(response);

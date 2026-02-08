@@ -92,7 +92,7 @@ export const updateSprint = async (spaceId, sprintId, updateData) => {
  */
 export const deleteSprint = async (spaceId, sprintId) => {
   try {
-    const response = await fetch(API_ENDPOINTS.SPRINTS.BY_ID(spaceId, sprintId), {
+    const response = await fetch(API_ENDPOINTS.SPRINTS.DELETE(spaceId, sprintId), {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
@@ -106,7 +106,7 @@ export const deleteSprint = async (spaceId, sprintId) => {
 /**
  * Start a sprint
  */
-export const startSprint = async (spaceId, sprintId, startData) => {
+export const startSprint = async (spaceId, sprintId, startData = {}) => {
   try {
     const response = await fetch(API_ENDPOINTS.SPRINTS.START(spaceId, sprintId), {
       method: 'POST',
@@ -141,13 +141,46 @@ export const completeSprint = async (spaceId, sprintId) => {
  */
 export const getSprintWorkItems = async (spaceId, sprintId) => {
   try {
-    const response = await fetch(API_ENDPOINTS.WORK_ITEMS.IN_SPRINT(spaceId, sprintId), {
+    const response = await fetch(API_ENDPOINTS.SPRINTS.WORK_ITEMS(spaceId, sprintId), {
       method: 'GET',
       headers: getAuthHeaders(),
     });
     return handleResponse(response);
   } catch (error) {
     console.error(`Failed to fetch work items for sprint ${sprintId}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Get board for sprint
+ */
+export const getSprintBoard = async (spaceId, sprintId) => {
+  try {
+    const response = await fetch(API_ENDPOINTS.SPRINTS.BOARD(spaceId, sprintId), {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+    return handleResponse(response);
+  } catch (error) {
+    console.error(`Failed to fetch board for sprint ${sprintId}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Move item on board
+ */
+export const moveItemOnBoard = async (spaceId, sprintId, workItemId, toCol) => {
+  try {
+    const response = await fetch(API_ENDPOINTS.SPRINTS.BOARD_MOVE(spaceId, sprintId), {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ workItemId, toCol }),
+    });
+    return handleResponse(response);
+  } catch (error) {
+    console.error(`Failed to move item on board:`, error);
     throw error;
   }
 };

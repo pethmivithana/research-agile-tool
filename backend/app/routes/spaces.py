@@ -129,6 +129,57 @@ async def update_space(space_id: str, space_update: SpaceUpdate, current_user: d
             detail=str(e)
         )
 
+@router.delete("/{space_id}")
+async def delete_space(space_id: str, current_user: dict = Depends(get_current_user), db = Depends(get_db)):
+    """Delete a space"""
+    try:
+        if not ObjectId.is_valid(space_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid space ID"
+            )
+        
+        space = await db.spaces.find_one({"_id": ObjectId(space_id)})
+        if not space:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Space not found"
+            )
+        
+        # Check ownership
+        if str(space["owner"]) != current_user["id"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Forbidden"
+            )
+        
+        # Delete all sprints in this space
+        await db.sprints.delete_many({"space": ObjectId(space_id)})
+        
+        # Delete all work items in this space
+        await db.work_items.delete_many({"space": ObjectId(space_id)})
+        
+        # Delete all changes in this space
+        await db.change_events.delete_many({"space": ObjectId(space_id)})
+        
+        # Delete space
+        result = await db.spaces.delete_one({"_id": ObjectId(space_id)})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Space not found"
+            )
+        
+        return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
 @router.post("/{space_id}/collaborators")
 async def add_collaborators(space_id: str, body: dict, current_user: dict = Depends(get_current_user), db = Depends(get_db)):
     """Add collaborators to space"""

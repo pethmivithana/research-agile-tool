@@ -12,8 +12,8 @@ from typing import List, Optional
 
 router = APIRouter()
 
-@router.post("/{space_id}/changes", response_model=ChangeEventResponse)
-async def create_change(space_id: str, change: ChangeEventCreate, current_user: dict = Depends(get_current_user), db = Depends(get_db)):
+@router.post("/{space_id}/changes")
+async def create_change(space_id: str, change: dict, current_user: dict = Depends(get_current_user), db = Depends(get_db)):
     """Create a change event"""
     try:
         if not ObjectId.is_valid(space_id):
@@ -22,12 +22,14 @@ async def create_change(space_id: str, change: ChangeEventCreate, current_user: 
                 detail="Invalid space ID"
             )
         
+        work_item_id = change.get("workItem")
+        
         change_data = {
             "space": ObjectId(space_id),
-            "workItem": ObjectId(change.workItem) if change.workItem else None,
-            "type": change.type,
-            "fieldsChanged": change.fieldsChanged,
-            "diffs": [diff.dict() for diff in change.diffs],
+            "workItem": ObjectId(work_item_id) if work_item_id else None,
+            "type": change.get("type"),
+            "fieldsChanged": change.get("fieldsChanged", []),
+            "diffs": change.get("diffs", []),
             "author": ObjectId(current_user["id"]),
             "date": datetime.utcnow(),
             "createdAt": datetime.utcnow(),
@@ -37,7 +39,7 @@ async def create_change(space_id: str, change: ChangeEventCreate, current_user: 
         result = await db.change_events.insert_one(change_data)
         change_data["_id"] = result.inserted_id
         
-        return ChangeEventResponse(**change_data)
+        return change_data
     except HTTPException:
         raise
     except Exception as e:
@@ -116,7 +118,7 @@ async def list_changes(
             change["author_details"] = author
         
         return {
-            "changes": [ChangeEventResponse(**change) for change in changes],
+            "changes": changes,
             "pagination": {
                 "total": total,
                 "limit": limit,

@@ -25,25 +25,37 @@ export const API_ENDPOINTS = {
 
   // Sprints
   SPRINTS: {
-    BASE: (spaceId) => `${API_BASE_URL}/api/spaces/${spaceId}/sprints`,
+    BASE: (spaceId) => `${API_BASE_URL}/api/sprints/${spaceId}`,
     BY_ID: (spaceId, sprintId) =>
-      `${API_BASE_URL}/api/spaces/${spaceId}/sprints/${sprintId}`,
+      `${API_BASE_URL}/api/sprints/${sprintId}`,
     START: (spaceId, sprintId) =>
-      `${API_BASE_URL}/api/spaces/${spaceId}/sprints/${sprintId}/start`,
+      `${API_BASE_URL}/api/sprints/${sprintId}/start`,
     COMPLETE: (spaceId, sprintId) =>
-      `${API_BASE_URL}/api/spaces/${spaceId}/sprints/${sprintId}/complete`,
+      `${API_BASE_URL}/api/sprints/${sprintId}/complete`,
+    DELETE: (spaceId, sprintId) =>
+      `${API_BASE_URL}/api/sprints/${sprintId}`,
+    BOARD: (spaceId, sprintId) =>
+      `${API_BASE_URL}/api/sprints/${sprintId}/board`,
+    BOARD_MOVE: (spaceId, sprintId) =>
+      `${API_BASE_URL}/api/sprints/${sprintId}/board/move`,
+    WORK_ITEMS: (spaceId, sprintId) =>
+      `${API_BASE_URL}/api/sprints/${sprintId}/work-items`,
   },
 
   // Work Items
   WORK_ITEMS: {
     BASE: (spaceId) =>
-      `${API_BASE_URL}/api/spaces/${spaceId}/work-items`,
+      `${API_BASE_URL}/api/backlog/${spaceId}`,
     BY_ID: (spaceId, workItemId) =>
-      `${API_BASE_URL}/api/spaces/${spaceId}/work-items/${workItemId}`,
+      `${API_BASE_URL}/api/work-items/${workItemId}`,
     BACKLOG: (spaceId) =>
-      `${API_BASE_URL}/api/spaces/${spaceId}/work-items/backlog`,
+      `${API_BASE_URL}/api/backlog/${spaceId}`,
     IN_SPRINT: (spaceId, sprintId) =>
-      `${API_BASE_URL}/api/spaces/${spaceId}/sprints/${sprintId}/work-items`,
+      `${API_BASE_URL}/api/sprints/${sprintId}/work-items`,
+    DELETE: (workItemId) =>
+      `${API_BASE_URL}/api/work-items/${workItemId}`,
+    PATCH: (workItemId) =>
+      `${API_BASE_URL}/api/work-items/${workItemId}`,
   },
 
   // Impact Analysis
@@ -60,9 +72,9 @@ export const API_ENDPOINTS = {
   // Change Events
   CHANGES: {
     BASE: (spaceId) =>
-      `${API_BASE_URL}/api/spaces/${spaceId}/changes`,
+      `${API_BASE_URL}/api/${spaceId}/changes`,
     BY_ID: (spaceId, changeId) =>
-      `${API_BASE_URL}/api/spaces/${spaceId}/changes/${changeId}`,
+      `${API_BASE_URL}/api/changes/${changeId}`,
   },
 };
 
