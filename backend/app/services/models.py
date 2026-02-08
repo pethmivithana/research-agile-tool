@@ -1,14 +1,10 @@
 """
-Data models using Pydantic
+Data models using Pydantic for FastAPI
 """
 
-from pydantic import BaseModel, Field, EmailStr, field_validator
-from typing import Optional, List, Dict, Any, Annotated
+from pydantic import BaseModel, Field, EmailStr
+from typing import Optional, List, Dict, Any
 from datetime import datetime
-from bson import ObjectId
-
-# Use Annotated for custom string type that represents ObjectId
-PyObjectId = Annotated[str, Field(description="MongoDB ObjectId")]
 
 # ============ AUTH MODELS ============
 
@@ -22,7 +18,7 @@ class UserLogin(BaseModel):
     password: str
 
 class UserResponse(BaseModel):
-    id: Optional[str] = Field(None, alias="_id", description="User ID")
+    id: Optional[str] = Field(None, alias="_id", description="User ID (MongoDB ObjectId)")
     name: str = ""
     email: str
 
@@ -46,18 +42,25 @@ class TokenResponse(BaseModel):
 class SpaceSettings(BaseModel):
     sprintDurationDefault: Optional[str] = "2w"
 
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "sprintDurationDefault": "2w"
+            }
+        }
+
 class SpaceCreate(BaseModel):
     name: str
-    collaborators: Optional[List[PyObjectId]] = []
+    collaborators: Optional[List[str]] = []
     settings: Optional[SpaceSettings] = None
 
 class SpaceUpdate(BaseModel):
     name: Optional[str] = None
-    collaborators: Optional[List[PyObjectId]] = None
+    collaborators: Optional[List[str]] = None
     settings: Optional[SpaceSettings] = None
 
 class SpaceResponse(BaseModel):
-    id: Optional[str] = Field(None, alias="_id", description="Space ID")
+    id: Optional[str] = Field(None, alias="_id", description="Space ID (MongoDB ObjectId)")
     name: str
     owner: Optional[str] = None
     collaborators: List[str] = []
@@ -86,6 +89,16 @@ class SprintMetrics(BaseModel):
     averageCompletionRate: float = 0.8
     prevSprintVelocity: float = 0
 
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "committedSP": 40,
+                "completedSP": 35,
+                "spilloverSP": 5,
+                "velocity": 35
+            }
+        }
+
 class SprintCreate(BaseModel):
     name: Optional[str] = None
     goal: Optional[str] = None
@@ -106,7 +119,7 @@ class SprintUpdate(BaseModel):
     metrics: Optional[SprintMetrics] = None
 
 class SprintResponse(BaseModel):
-    id: Optional[str] = Field(None, alias="_id", description="Sprint ID")
+    id: Optional[str] = Field(None, alias="_id", description="Sprint ID (MongoDB ObjectId)")
     space: Optional[str] = None
     name: str = "Sprint"
     goal: Optional[str] = None
@@ -148,6 +161,15 @@ class MLFeatures(BaseModel):
     changeSequenceIndex: int = 0
     isWeekendChange: int = 0
 
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "totalLinks": 3,
+                "totalComments": 5,
+                "sprintLoad7d": 45.0
+            }
+        }
+
 class MLAnalysis(BaseModel):
     effortEstimate: Optional[float] = None
     effortConfidence: Optional[float] = None
@@ -157,7 +179,7 @@ class MLAnalysis(BaseModel):
     qualityRiskProb: Optional[float] = None
     qualityRiskLabel: Optional[str] = None
     analyzedAt: Optional[datetime] = None
-    
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -175,9 +197,9 @@ class WorkItemCreate(BaseModel):
     description: Optional[str] = None
     priority: str = "Medium"
     storyPoints: Optional[float] = None
-    assignee: Optional[PyObjectId] = None
-    parent: Optional[PyObjectId] = None
-    epic: Optional[PyObjectId] = None
+    assignee: Optional[str] = None
+    parent: Optional[str] = None
+    epic: Optional[str] = None
     flags: Optional[List[str]] = []
     mlFeatures: Optional[MLFeatures] = None
     mlAnalysis: Optional[MLAnalysis] = None
@@ -189,15 +211,15 @@ class WorkItemUpdate(BaseModel):
     description: Optional[str] = None
     priority: Optional[str] = None
     storyPoints: Optional[float] = None
-    assignee: Optional[PyObjectId] = None
-    parent: Optional[PyObjectId] = None
-    epic: Optional[PyObjectId] = None
+    assignee: Optional[str] = None
+    parent: Optional[str] = None
+    epic: Optional[str] = None
     flags: Optional[List[str]] = None
     mlFeatures: Optional[MLFeatures] = None
     mlAnalysis: Optional[MLAnalysis] = None
 
 class WorkItemResponse(BaseModel):
-    id: Optional[str] = Field(None, alias="_id", description="Work Item ID")
+    id: Optional[str] = Field(None, alias="_id", description="Work Item ID (MongoDB ObjectId)")
     space: Optional[str] = None
     sprint: Optional[str] = None
     type: str
@@ -236,15 +258,24 @@ class FieldChange(BaseModel):
     old: Optional[Any] = None
     new: Optional[Any] = None
 
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "field": "status",
+                "old": "To Do",
+                "new": "In Progress"
+            }
+        }
+
 class ChangeEventCreate(BaseModel):
-    space: PyObjectId
-    workItem: Optional[PyObjectId] = None
+    space: str
+    workItem: Optional[str] = None
     type: str
     fieldsChanged: List[str] = []
     diffs: List[FieldChange] = []
 
 class ChangeEventResponse(BaseModel):
-    id: Optional[str] = Field(None, alias="_id", description="Change Event ID")
+    id: Optional[str] = Field(None, alias="_id", description="Change Event ID (MongoDB ObjectId)")
     space: Optional[str] = None
     workItem: Optional[str] = None
     type: str = "updated"
