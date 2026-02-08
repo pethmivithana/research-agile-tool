@@ -12,6 +12,13 @@ import os
 # Load environment variables
 load_dotenv()
 
+# Check required environment variables
+required_env_vars = ["MONGODB_URI", "JWT_SECRET"]
+missing_vars = [var for var in required_env_vars if not os.getenv(var)]
+if missing_vars:
+    print(f"⚠️  Missing environment variables: {', '.join(missing_vars)}")
+    print("Please set these in your .env file")
+
 # Import database
 # FIX: Point to app.services.database
 from app.services.database import connect_db, close_db

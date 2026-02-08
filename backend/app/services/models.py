@@ -2,21 +2,13 @@
 Data models using Pydantic
 """
 
-from pydantic import BaseModel, Field, EmailStr
-from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, Field, EmailStr, field_validator
+from typing import Optional, List, Dict, Any, Annotated
 from datetime import datetime
 from bson import ObjectId
 
-class PyObjectId(str):
-    @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
-
-    @classmethod
-    def validate(cls, v):
-        if not ObjectId.is_valid(v):
-            raise ValueError(f"Invalid ObjectId: {v}")
-        return str(v)
+# Use Annotated for custom string type that represents ObjectId
+PyObjectId = Annotated[str, Field(description="MongoDB ObjectId")]
 
 # ============ AUTH MODELS ============
 
@@ -30,12 +22,19 @@ class UserLogin(BaseModel):
     password: str
 
 class UserResponse(BaseModel):
-    id: Optional[PyObjectId] = Field(alias="_id")
-    name: str
+    id: Optional[str] = Field(None, alias="_id", description="User ID")
+    name: str = ""
     email: str
 
     class Config:
         populate_by_name = True
+        json_schema_extra = {
+            "example": {
+                "_id": "507f1f77bcf86cd799439011",
+                "name": "John Doe",
+                "email": "john@example.com"
+            }
+        }
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -58,16 +57,24 @@ class SpaceUpdate(BaseModel):
     settings: Optional[SpaceSettings] = None
 
 class SpaceResponse(BaseModel):
-    id: Optional[PyObjectId] = Field(alias="_id")
+    id: Optional[str] = Field(None, alias="_id", description="Space ID")
     name: str
-    owner: PyObjectId
-    collaborators: List[PyObjectId] = []
+    owner: Optional[str] = None
+    collaborators: List[str] = []
     settings: Optional[SpaceSettings] = None
     createdAt: Optional[datetime] = None
     updatedAt: Optional[datetime] = None
 
     class Config:
         populate_by_name = True
+        json_schema_extra = {
+            "example": {
+                "_id": "507f1f77bcf86cd799439011",
+                "name": "Backend Team",
+                "owner": "507f1f77bcf86cd799439010",
+                "collaborators": []
+            }
+        }
 
 # ============ SPRINT MODELS ============
 
@@ -99,11 +106,11 @@ class SprintUpdate(BaseModel):
     metrics: Optional[SprintMetrics] = None
 
 class SprintResponse(BaseModel):
-    id: Optional[PyObjectId] = Field(alias="_id")
-    space: PyObjectId
-    name: str
+    id: Optional[str] = Field(None, alias="_id", description="Sprint ID")
+    space: Optional[str] = None
+    name: str = "Sprint"
     goal: Optional[str] = None
-    duration: str
+    duration: str = "2w"
     startDate: Optional[datetime] = None
     endDate: Optional[datetime] = None
     durationDays: int = 14
@@ -118,6 +125,15 @@ class SprintResponse(BaseModel):
 
     class Config:
         populate_by_name = True
+        json_schema_extra = {
+            "example": {
+                "_id": "507f1f77bcf86cd799439011",
+                "space": "507f1f77bcf86cd799439010",
+                "name": "Sprint 1",
+                "duration": "2w",
+                "status": "active"
+            }
+        }
 
 # ============ WORK ITEM MODELS ============
 
@@ -141,6 +157,16 @@ class MLAnalysis(BaseModel):
     qualityRiskProb: Optional[float] = None
     qualityRiskLabel: Optional[str] = None
     analyzedAt: Optional[datetime] = None
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "effortEstimate": 32.5,
+                "effortConfidence": 0.85,
+                "scheduleRiskProb": 0.3,
+                "scheduleRiskLabel": "low"
+            }
+        }
 
 class WorkItemCreate(BaseModel):
     type: str
@@ -171,18 +197,18 @@ class WorkItemUpdate(BaseModel):
     mlAnalysis: Optional[MLAnalysis] = None
 
 class WorkItemResponse(BaseModel):
-    id: Optional[PyObjectId] = Field(alias="_id")
-    space: PyObjectId
-    sprint: Optional[PyObjectId] = None
+    id: Optional[str] = Field(None, alias="_id", description="Work Item ID")
+    space: Optional[str] = None
+    sprint: Optional[str] = None
     type: str
     status: str
     title: str
     description: Optional[str] = None
-    priority: str
+    priority: str = "Medium"
     storyPoints: Optional[float] = None
-    assignee: Optional[PyObjectId] = None
-    parent: Optional[PyObjectId] = None
-    epic: Optional[PyObjectId] = None
+    assignee: Optional[str] = None
+    parent: Optional[str] = None
+    epic: Optional[str] = None
     flags: List[str] = []
     mlFeatures: Optional[MLFeatures] = None
     mlAnalysis: Optional[MLAnalysis] = None
@@ -191,6 +217,17 @@ class WorkItemResponse(BaseModel):
 
     class Config:
         populate_by_name = True
+        json_schema_extra = {
+            "example": {
+                "_id": "507f1f77bcf86cd799439011",
+                "space": "507f1f77bcf86cd799439010",
+                "type": "Story",
+                "status": "To Do",
+                "title": "User Authentication",
+                "priority": "High",
+                "storyPoints": 5
+            }
+        }
 
 # ============ CHANGE EVENT MODELS ============
 
@@ -207,17 +244,26 @@ class ChangeEventCreate(BaseModel):
     diffs: List[FieldChange] = []
 
 class ChangeEventResponse(BaseModel):
-    id: Optional[PyObjectId] = Field(alias="_id")
-    space: PyObjectId
-    workItem: Optional[PyObjectId] = None
-    type: str
+    id: Optional[str] = Field(None, alias="_id", description="Change Event ID")
+    space: Optional[str] = None
+    workItem: Optional[str] = None
+    type: str = "updated"
     fieldsChanged: List[str] = []
     diffs: List[FieldChange] = []
-    author: PyObjectId
-    date: datetime
-    impactAnalysisRef: Optional[PyObjectId] = None
+    author: Optional[str] = None
+    date: Optional[datetime] = None
+    impactAnalysisRef: Optional[str] = None
     createdAt: Optional[datetime] = None
     updatedAt: Optional[datetime] = None
 
     class Config:
         populate_by_name = True
+        json_schema_extra = {
+            "example": {
+                "_id": "507f1f77bcf86cd799439011",
+                "space": "507f1f77bcf86cd799439010",
+                "type": "updated",
+                "fieldsChanged": ["status"],
+                "author": "507f1f77bcf86cd799439012"
+            }
+        }
