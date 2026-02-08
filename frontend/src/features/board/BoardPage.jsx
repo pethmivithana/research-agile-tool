@@ -29,7 +29,7 @@ export default function BoardPage() {
   })
 
   const moveMut = useMutation({
-    mutationFn: ({ workItemId, toCol }) => api.post("/board/move", { workItemId, toCol }),
+    mutationFn: ({ workItemId, toCol }) => api.post(`/sprints/${sprintId}/board/move`, { workItemId, toCol }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["board", sprintId] })
     },
