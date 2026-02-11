@@ -19,7 +19,7 @@ export default function SprintForm({ sprint, onCreated, onCancel }) {
       if (sprint) {
         return api.patch(`/sprints/${sprint._id}`, { name, goal, duration, startDate })
       }
-      return api.post(`/spaces/${spaceId}/sprints`, { name, goal, duration, startDate })
+      return api.post(`/sprints/${spaceId}`, { name, goal, duration, startDate })
     },
     onSuccess: () => {
       qc.invalidateQueries(["sprints", spaceId])

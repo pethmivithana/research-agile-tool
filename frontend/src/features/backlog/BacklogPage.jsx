@@ -17,7 +17,7 @@ export default function BacklogPage() {
   const { data: backlog, isLoading: backlogLoading } = useQuery({
     queryKey: ["backlog", spaceId],
     queryFn: async () => {
-      const { data } = await api.get(`/spaces/${spaceId}/backlog`)
+      const { data } = await api.get(`/backlog/${spaceId}`)
       return data
     },
     enabled: !!spaceId,
@@ -26,7 +26,7 @@ export default function BacklogPage() {
   const { data: sprints } = useQuery({
     queryKey: ["sprints", spaceId],
     queryFn: async () => {
-      const { data } = await api.get(`/spaces/${spaceId}/sprints`)
+      const { data } = await api.get(`/sprints/${spaceId}`)
       return data
     },
     enabled: !!spaceId,

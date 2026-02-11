@@ -97,7 +97,7 @@ export default function RequirementChangePage() {
   const { data: sprints = [], isLoading: sprintsLoading } = useQuery({
     queryKey: ["sprints", spaceId],
     queryFn: async () => {
-      const response = await api.get(`/spaces/${spaceId}/sprints`)
+      const response = await api.get(`/sprints/${spaceId}`)
       return response.data
     },
     enabled: !!spaceId,

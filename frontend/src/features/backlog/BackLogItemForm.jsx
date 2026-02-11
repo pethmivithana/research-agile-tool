@@ -60,7 +60,7 @@ export default function BacklogItemForm({ item, onCreated, onCancel }) {
       if (item) {
         await api.patch(`/work-items/${item._id}`, payload)
       } else {
-        await api.post(`/spaces/${spaceId}/backlog`, payload)
+        await api.post(`/backlog/${spaceId}`, payload)
       }
       onCreated?.()
     } catch (error) {

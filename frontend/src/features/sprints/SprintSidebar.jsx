@@ -20,7 +20,7 @@ export default function SprintSidebar() {
   } = useQuery({
     queryKey: ["sprints", spaceId],
     queryFn: async () => {
-      const { data } = await api.get(`/spaces/${spaceId}/sprints`)
+      const { data } = await api.get(`/sprints/${spaceId}`)
       return data
     },
     enabled: !!spaceId,
