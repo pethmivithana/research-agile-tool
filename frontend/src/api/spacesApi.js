@@ -122,10 +122,44 @@ export const deleteSpace = async (spaceId) => {
   }
 };
 
+/**
+ * Create space with default export format
+ * Returns data in { data } format for React Query compatibility
+ */
+const listSpaces = async () => {
+  const result = await getSpaces();
+  return { data: result };
+};
+
+const getSpaceById = async (spaceId) => {
+  const result = await getSpace(spaceId);
+  return { data: result };
+};
+
+const createNewSpace = async (spaceData) => {
+  const result = await createSpace(spaceData);
+  return { data: result };
+};
+
+const updateSpaceData = async (spaceId, updateData) => {
+  const result = await updateSpace(spaceId, updateData);
+  return { data: result };
+};
+
+const deleteSpaceData = async (spaceId) => {
+  const result = await deleteSpace(spaceId);
+  return { data: result };
+};
+
 export default {
+  list: listSpaces,
   getSpaces,
+  get: getSpaceById,
   getSpace,
+  create: createNewSpace,
   createSpace,
+  update: updateSpaceData,
   updateSpace,
+  delete: deleteSpaceData,
   deleteSpace,
 };

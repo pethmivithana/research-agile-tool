@@ -18,9 +18,11 @@ export default function CreateSpacePage() {
 
     try {
       const { data } = await SpacesApi.create({ name })
-      navigate(`/spaces/${data._id}/backlog`)
+      const spaceId = data._id || data.id
+      navigate(`/spaces/${spaceId}/backlog`)
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to create space")
+      console.error('Failed to create space:', err)
+      setError(err.message || "Failed to create space")
     } finally {
       setLoading(false)
     }
