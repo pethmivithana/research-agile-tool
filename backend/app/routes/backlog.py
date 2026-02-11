@@ -3,7 +3,7 @@ Backlog routes
 """
 
 from fastapi import APIRouter, HTTPException, status, Depends
-from app.services.models import WorkItemCreate, WorkItemUpdate, WorkItemResponse
+from app.services.models import WorkItemCreate, WorkItemUpdate, WorkItemResponse, to_response
 from app.services.auth import get_current_user
 from app.services.database import get_db
 from bson import ObjectId
@@ -43,7 +43,7 @@ async def create_work_item(space_id: str, item: WorkItemCreate, current_user: di
         result = await db.work_items.insert_one(item_data)
         item_data["_id"] = result.inserted_id
         
-        return WorkItemResponse(**item_data)
+        return to_response(item_data)
     except HTTPException:
         raise
     except Exception as e:
@@ -112,7 +112,7 @@ async def update_work_item(item_id: str, item_update: WorkItemUpdate, current_us
         update_data["updatedAt"] = datetime.utcnow()
         
         result = await db.work_items.find_one_and_update(
-            {"_id": ObjectId(item_id)},
+            {"_id": ObjectId(space_id)},
             {"$set": update_data},
             return_document=True
         )
@@ -123,34 +123,7 @@ async def update_work_item(item_id: str, item_update: WorkItemUpdate, current_us
                 detail="Work item not found"
             )
         
-        return WorkItemResponse(**result)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
-
-@router.delete("/backlog/{item_id}")
-async def delete_work_item(item_id: str, current_user: dict = Depends(get_current_user), db = Depends(get_db)):
-    """Delete a work item"""
-    try:
-        if not ObjectId.is_valid(item_id):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid item ID"
-            )
-        
-        result = await db.work_items.delete_one({"_id": ObjectId(item_id)})
-        
-        if result.deleted_count == 0:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Work item not found"
-            )
-        
-        return {"ok": True}
+        return to_response(result)
     except HTTPException:
         raise
     except Exception as e:
@@ -176,7 +149,7 @@ async def get_work_item(item_id: str, current_user: dict = Depends(get_current_u
                 detail="Work item not found"
             )
         
-        return WorkItemResponse(**item)
+        return to_response(item)
     except HTTPException:
         raise
     except Exception as e:
@@ -230,7 +203,7 @@ async def patch_work_item(item_id: str, item_update: WorkItemUpdate, current_use
                 detail="Work item not found"
             )
         
-        return WorkItemResponse(**result)
+        return to_response(result)
     except HTTPException:
         raise
     except Exception as e:

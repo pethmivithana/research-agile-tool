@@ -3,7 +3,7 @@ Sprints routes
 """
 
 from fastapi import APIRouter, HTTPException, status, Depends
-from app.services.models import SprintCreate, SprintUpdate, SprintResponse
+from app.services.models import SprintCreate, SprintUpdate, SprintResponse, to_response
 from app.services.auth import get_current_user
 from app.services.database import get_db
 from bson import ObjectId
@@ -89,7 +89,7 @@ async def list_sprints(space_id: str, current_user: dict = Depends(get_current_u
             )
         
         sprints = await db.sprints.find({"space": ObjectId(space_id)}).sort("order", 1).to_list(100)
-        return [SprintResponse(**sprint) for sprint in sprints]
+        return [to_response(sprint) for sprint in sprints]
     except HTTPException:
         raise
     except Exception as e:
@@ -143,7 +143,7 @@ async def create_sprint(space_id: str, sprint_create: SprintCreate, current_user
         result = await db.sprints.insert_one(sprint_data)
         sprint_data["_id"] = result.inserted_id
         
-        return SprintResponse(**sprint_data)
+        return to_response(sprint_data)
     except HTTPException:
         raise
     except Exception as e:
@@ -226,7 +226,7 @@ async def update_sprint(sprint_id: str, sprint_update: SprintUpdate, current_use
                 detail="Sprint not found"
             )
         
-        return SprintResponse(**result)
+        return to_response(result)
     except HTTPException:
         raise
     except Exception as e:
@@ -257,7 +257,7 @@ async def start_sprint(sprint_id: str, current_user: dict = Depends(get_current_
                 detail="Sprint not found"
             )
         
-        return SprintResponse(**result)
+        return to_response(result)
     except HTTPException:
         raise
     except Exception as e:

@@ -5,6 +5,26 @@ Data models using Pydantic for FastAPI
 from pydantic import BaseModel, Field, EmailStr
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+from bson import ObjectId
+
+def to_response(data: dict) -> dict:
+    """Convert MongoDB document with ObjectId to API response dict"""
+    if not data:
+        return data
+    
+    converted = {}
+    for key, value in data.items():
+        if isinstance(value, ObjectId):
+            converted[key] = str(value)
+        elif isinstance(value, list):
+            converted[key] = [str(v) if isinstance(v, ObjectId) else v for v in value]
+        elif isinstance(value, datetime):
+            converted[key] = value.isoformat()
+        elif isinstance(value, dict):
+            converted[key] = to_response(value)
+        else:
+            converted[key] = value
+    return converted
 
 # ============ AUTH MODELS ============
 

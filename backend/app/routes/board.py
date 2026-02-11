@@ -3,7 +3,7 @@ Board routes
 """
 
 from fastapi import APIRouter, HTTPException, status, Depends
-from app.services.models import WorkItemResponse
+from app.services.models import WorkItemResponse, to_response
 from app.services.auth import get_current_user
 from app.services.database import get_db
 from bson import ObjectId
@@ -44,7 +44,7 @@ async def get_board(sprint_id: str, current_user: dict = Depends(get_current_use
             status_val = item.get("status", "To Do")
             if status_val not in grouped:
                 status_val = "To Do"
-            grouped[status_val].append(WorkItemResponse(**item))
+            grouped[status_val].append(to_response(item))
         
         return grouped
     except HTTPException:
@@ -94,7 +94,7 @@ async def move_item(sprint_id: str, body: dict, current_user: dict = Depends(get
         
         return {
             "ok": True,
-            "item": WorkItemResponse(**result)
+            "item": to_response(result)
         }
     except HTTPException:
         raise

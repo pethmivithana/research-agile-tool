@@ -3,7 +3,7 @@ Changes routes
 """
 
 from fastapi import APIRouter, HTTPException, status, Depends, Query
-from app.services.models import ChangeEventCreate, ChangeEventResponse
+from app.services.models import ChangeEventCreate, ChangeEventResponse, to_response
 from app.services.auth import get_current_user
 from app.services.database import get_db
 from bson import ObjectId
@@ -39,7 +39,7 @@ async def create_change(space_id: str, change: dict, current_user: dict = Depend
         result = await db.change_events.insert_one(change_data)
         change_data["_id"] = result.inserted_id
         
-        return change_data
+        return to_response(change_data)
     except HTTPException:
         raise
     except Exception as e:
@@ -73,7 +73,7 @@ async def get_change(change_id: str, current_user: dict = Depends(get_current_us
         author = await db.users.find_one({"_id": change["author"]})
         change["author_details"] = author
         
-        return ChangeEventResponse(**change)
+        return to_response(change)
     except HTTPException:
         raise
     except Exception as e:

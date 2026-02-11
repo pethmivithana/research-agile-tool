@@ -28,7 +28,18 @@ async def create_space(space: SpaceCreate, current_user: dict = Depends(get_curr
         result = await db.spaces.insert_one(space_data)
         space_data["_id"] = result.inserted_id
         
-        return SpaceResponse(**space_data)
+        # Convert ObjectId to string for response
+        response_data = {
+            "_id": str(space_data["_id"]),
+            "name": space_data["name"],
+            "owner": str(space_data["owner"]),
+            "collaborators": [str(c) for c in space_data["collaborators"]],
+            "settings": space_data.get("settings"),
+            "createdAt": space_data.get("createdAt"),
+            "updatedAt": space_data.get("updatedAt")
+        }
+        
+        return response_data
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -47,7 +58,18 @@ async def list_spaces(current_user: dict = Depends(get_current_user), db = Depen
             ]
         }).sort("createdAt", -1).to_list(100)
         
-        return [SpaceResponse(**space) for space in spaces]
+        result = []
+        for space in spaces:
+            result.append({
+                "_id": str(space["_id"]),
+                "name": space["name"],
+                "owner": str(space["owner"]),
+                "collaborators": [str(c) for c in space.get("collaborators", [])],
+                "settings": space.get("settings"),
+                "createdAt": space.get("createdAt"),
+                "updatedAt": space.get("updatedAt")
+            })
+        return result
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -71,7 +93,15 @@ async def get_space(space_id: str, current_user: dict = Depends(get_current_user
                 detail="Space not found"
             )
         
-        return SpaceResponse(**space)
+        return {
+            "_id": str(space["_id"]),
+            "name": space["name"],
+            "owner": str(space["owner"]),
+            "collaborators": [str(c) for c in space.get("collaborators", [])],
+            "settings": space.get("settings"),
+            "createdAt": space.get("createdAt"),
+            "updatedAt": space.get("updatedAt")
+        }
     except HTTPException:
         raise
     except Exception as e:
@@ -120,7 +150,15 @@ async def update_space(space_id: str, space_update: SpaceUpdate, current_user: d
             return_document=True
         )
         
-        return SpaceResponse(**result)
+        return {
+            "_id": str(result["_id"]),
+            "name": result["name"],
+            "owner": str(result["owner"]),
+            "collaborators": [str(c) for c in result.get("collaborators", [])],
+            "settings": result.get("settings"),
+            "createdAt": result.get("createdAt"),
+            "updatedAt": result.get("updatedAt")
+        }
     except HTTPException:
         raise
     except Exception as e:
